@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.6-pg18
+    container_name: brucke-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: brucke
+      POSTGRES_PASSWORD: brucke_dev
+      POSTGRES_DB: brucke_one
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - brucke_dev_postgres_data:/var/lib/postgresql
+      - ./infra/postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  brucke_dev_postgres_data:

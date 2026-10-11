@@ -1,0 +1,66 @@
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+.next/
+*.tsbuildinfo
+.pytest_cache/
+*.egg-info/
+
+# Python bytecode and virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and runtime files
+*.log
+logs/
+*.pid
+*.pid.lock
+*.seed
+report.*.json
+
+
+# Operating-system files
+.DS_Store
+._*
+
+# IDE and editor files
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.swp
+*.swo
+*.sublime-workspace
+
+# Local database and temporary files
+*.sqlite
+*.sqlite3
+*.db
+.tmp/
+.temp/
+
+# Setup
+SetUp.md
+
+# Python tooling
+.mypy_cache/
+.ruff_cache/
+
+# Local secrets
+*.pem
+*.key
+
+#Langfuse
+Langfuse
