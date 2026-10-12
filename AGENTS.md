@@ -15,6 +15,7 @@
 - Do not introduce additional dependencies or infrastructure without justification.
 - Use database migrations for schema changes.
 - Add appropriate tests for new functionality.
+- Add a short, easy-to-understand description for every newly added function that explains its scope.
 
 ## Checkpoint Review
 
