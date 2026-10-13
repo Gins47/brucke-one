@@ -9,7 +9,9 @@ The API imports `DatabaseModule` explicitly and uses one shared PostgreSQL pool.
 It verifies the connection during startup and closes the pool during shutdown.
 `CONNECTION_TIMEOUT` is a positive integer in milliseconds and defaults to 5000.
 Startup does not apply migrations. The HTTP and database integration tests
-require PostgreSQL to be running; database tests use read-only queries.
+start a dedicated PostgreSQL container, apply the reviewed migrations, and
+remove the container and its volume when they finish. They use
+`TEST_DATABASE_URL` and never use the development `DATABASE_URL`.
 
 ```bash
 $ npm install
@@ -34,7 +36,7 @@ $ npm run start:prod
 # unit tests
 $ npm run test
 
-# e2e tests
+# isolated PostgreSQL integration tests
 $ npm run test:e2e
 
 # test coverage

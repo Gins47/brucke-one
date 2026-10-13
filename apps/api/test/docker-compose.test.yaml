@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.6-pg18
+
+    environment:
+      POSTGRES_USER: brucke
+      POSTGRES_PASSWORD: brucke_test
+      POSTGRES_DB: brucke_one_test
+
+    ports:
+      - '127.0.0.1:5433:5432'
+
+    volumes:
+      - brucke_one_test_data:/var/lib/postgresql
+      - ../../../infra/postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U brucke -d brucke_one_test']
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+
+volumes:
+  brucke_one_test_data:

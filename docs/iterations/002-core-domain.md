@@ -1,7 +1,7 @@
 # Iteration 002 — Core Domain Data Model
 
 **Project:** BruckeOne  
-**Status:** Design approved; implementation not started  
+**Status:** Implemented; awaiting review
 **Goal:** Define and implement the core operational database model for organizations, emergency operations, shelters, shelter activations, and affected regions.
 
 ## Starting point
@@ -217,11 +217,11 @@ Rules:
 
 ## Checkpoints
 
-1. Review and approve this document.
-2. Implement Drizzle schemas and generate one reviewed migration.
-3. Inspect migration SQL before applying it.
-4. Apply the migration only to the local development database.
-5. Add and run integration tests for all listed constraints.
+1. [x] Review and approve this document.
+2. [x] Implement Drizzle schemas and generate one reviewed migration.
+3. [x] Inspect migration SQL before applying it.
+4. [x] Apply the migration only to the local development database.
+5. [x] Add and run integration tests for all listed constraints.
 6. Stop for review before implementing controllers, DTOs, or services.
 
 Protocols and RAG knowledge base are deferred to a dedicated iteration.

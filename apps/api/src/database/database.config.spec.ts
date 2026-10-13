@@ -10,11 +10,21 @@ describe('database configuration', () => {
   it.each([undefined, '', '   '])(
     'rejects an empty database URL (%s)',
     (value) => {
+      delete process.env.TEST_DATABASE_URL;
       if (value === undefined) delete process.env.DATABASE_URL;
       else process.env.DATABASE_URL = value;
-      expect(() => getDatabaseUrl()).toThrow('DATABASE_URL is required');
+      expect(() => getDatabaseUrl()).toThrow(
+        'DATABASE_URL or TEST_DATABASE_URL is required',
+      );
     },
   );
+
+  it('prefers the dedicated test database URL', () => {
+    process.env.DATABASE_URL = 'postgresql://development.example/bruke_one';
+    process.env.TEST_DATABASE_URL = 'postgresql://test.example/bruke_one_test';
+
+    expect(getDatabaseUrl()).toBe(process.env.TEST_DATABASE_URL);
+  });
 
   it('uses a bounded default connection timeout', () => {
     delete process.env.CONNECTION_TIMEOUT;

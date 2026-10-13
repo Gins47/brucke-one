@@ -1,9 +1,11 @@
 import 'dotenv/config';
 
 export function getDatabaseUrl(): string {
-  const value = process.env.DATABASE_URL;
+  const value = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
   if (!value?.trim()) {
-    throw new Error('DATABASE_URL is required for database access');
+    throw new Error(
+      'DATABASE_URL or TEST_DATABASE_URL is required for database access',
+    );
   }
 
   return value;
