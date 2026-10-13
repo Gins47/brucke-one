@@ -1,7 +1,7 @@
 # Iteration 003 — Core Operations API
 
 **Project:** BruckeOne  
-**Status:** Planned  
+**Status:** Checkpoint 1 complete; awaiting review
 **Goal:** Implement the V1 REST API for the core operational domain using NestJS modules, typed DTO validation, focused services, and focused HTTP/database tests.
 
 ## Preconditions
@@ -20,16 +20,15 @@
 - Document exported or non-obvious functions briefly.
 - Do not create generic repositories or a generic CRUD framework.
 
-## Checkpoint 1 — API foundation
+## Checkpoint 1 — API foundation [x]
 
-- Use the installed Zod for implementing the validations.
-- Configure NestJS StandardSchemaValidationPipe globally.
-- Define request schemas with Zod and infer their TypeScript input/output types.
-- Reject unknown request fields with z.strictObject().
-- Add only the validation dependencies required for NestJS DTO validation.
-- Configure global validation with whitelist behavior and rejection of unknown request fields.
-- Add minimal database-error translation for unique-constraint conflicts.
-- Verify the existing app and database tests still pass.
+- Use the installed Zod for request validation. NestJS remains on 11.2.7; `StandardSchemaValidationPipe` is unavailable in this version.
+- Use the project-owned `ZodValidationPipe` explicitly on request bodies. It uses `safeParse`, returns Zod's parsed output, and returns structured HTTP 400 errors for invalid input.
+- Define request schemas next to the relevant module's DTO/request definitions and infer their TypeScript input/output types there.
+- Use `z.strictObject()` to reject unknown request fields.
+- Use NestJS `ParseUUIDPipe` for UUID route parameters.
+- Add no validation decorators, generic validation framework, or Standard Schema compatibility layer.
+- Verify the validation-pipe tests, existing unit tests, build, and lint.
 
 **Stop for review.**
 
