@@ -81,6 +81,8 @@ Rules:
 - `UNIQUE (organization_id, operation_code)`.
 - Add `UNIQUE (id, organization_id)` to support composite foreign keys from shelter activations.
 - Status lifecycle for V1: `PLANNED`, `ACTIVE`, `COMPLETED`, `CANCELLED`.
+- Type values for V1: `FLOOD`, `FIRE`, `EARTHQUAKE`, `OTHER`.
+- Severity values for V1: `LOW`, `MEDIUM`, `HIGH`.
 - `ended_at` must not be earlier than `started_at`.
 - `country_code` is an ISO-style two-letter country code; API validation will enforce its exact format later.
 
@@ -139,6 +141,7 @@ Rules:
 - `id` is the UUID primary key.
 - V1 status values: `ACTIVE`, `DEACTIVATED`.
 - `deactivated_at` must not be earlier than `activated_at`.
+- `ACTIVE` activations must have `deactivated_at` unset; `DEACTIVATED` activations must have `deactivated_at` set.
 - At most one active activation may exist for a physical shelter:
 
   ```sql
@@ -170,6 +173,8 @@ operation_affected_regions
 - region_name
 - added_at
 - removed_at nullable
+- created_at
+- updated_at
 ```
 
 Rules:

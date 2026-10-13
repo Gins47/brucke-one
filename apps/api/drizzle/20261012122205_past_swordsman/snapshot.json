@@ -1,0 +1,1068 @@
+{
+  "version": "8",
+  "dialect": "postgres",
+  "id": "7778fd09-200e-4fda-8b0f-83ce20410178",
+  "prevIds": [
+    "fd3d76d6-65b3-4384-91e2-788379372999"
+  ],
+  "ddl": [
+    {
+      "values": [
+        "LOW",
+        "MEDIUM",
+        "HIGH"
+      ],
+      "name": "emergency_operation_severity",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "values": [
+        "PLANNED",
+        "ACTIVE",
+        "COMPLETED",
+        "CANCELLED"
+      ],
+      "name": "emergency_operation_status",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "values": [
+        "FLOOD",
+        "FIRE",
+        "EARTHQUAKE",
+        "OTHER"
+      ],
+      "name": "emergency_operation_type",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "values": [
+        "ACTIVE",
+        "DEACTIVATED"
+      ],
+      "name": "shelter_activation_status",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "emergency_operations",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "operation_affected_regions",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "organizations",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "shelter_activations",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "shelters",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "emergency_operations"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "organization_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "emergency_operations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "operation_code",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "emergency_operations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "emergency_operations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "description",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "emergency_operations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "country_code",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "emergency_operations"
+    },
+    {
+      "type": "emergency_operation_type",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "type",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "emergency_operations"
+    },
+    {
+      "type": "emergency_operation_severity",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "severity",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "emergency_operations"
+    },
+    {
+      "type": "emergency_operation_status",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "emergency_operations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "started_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "emergency_operations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ended_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "emergency_operations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "emergency_operations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "emergency_operations"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "operation_affected_regions"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "emergency_operation_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "operation_affected_regions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "country_code",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "operation_affected_regions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "region_code",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "operation_affected_regions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "region_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "operation_affected_regions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "added_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "operation_affected_regions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "removed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "operation_affected_regions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "operation_affected_regions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "operation_affected_regions"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "organizations"
+    },
+    {
+      "type": "varchar(30)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "code",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "organizations"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "organizations"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contact_email",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "organizations"
+    },
+    {
+      "type": "varchar(15)",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contact_phone",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "organizations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "office_address",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "organizations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "organizations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "organizations"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelter_activations"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "organization_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelter_activations"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "shelter_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelter_activations"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "emergency_operation_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelter_activations"
+    },
+    {
+      "type": "shelter_activation_status",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelter_activations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "activated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelter_activations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "deactivated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelter_activations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelter_activations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelter_activations"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "organization_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "shelter_code",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "address",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "country_code",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "latitude",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "longitude",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "capacity",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contact_email",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contact_phone",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "emergency_operation_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "country_code",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "region_code",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"removed_at\" IS NULL",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "operation_affected_regions_current_region_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "operation_affected_regions"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "shelter_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"status\" = 'ACTIVE'",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "shelter_activations_one_active_shelter_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "shelter_activations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "organization_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "organizations",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "emergency_operations_organization_id_organizations_id_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "emergency_operations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "emergency_operation_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "emergency_operations",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "operation_affected_regions_operation_id_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "operation_affected_regions"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "shelter_id",
+        "organization_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "shelters",
+      "columnsTo": [
+        "id",
+        "organization_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "shelter_activations_shelter_organization_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "shelter_activations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "emergency_operation_id",
+        "organization_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "emergency_operations",
+      "columnsTo": [
+        "id",
+        "organization_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "shelter_activations_operation_organization_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "shelter_activations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "organization_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "organizations",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "shelters_organization_id_organizations_id_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "emergency_operations_pkey",
+      "schema": "public",
+      "table": "emergency_operations",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "operation_affected_regions_pkey",
+      "schema": "public",
+      "table": "operation_affected_regions",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "organizations_pkey",
+      "schema": "public",
+      "table": "organizations",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "shelter_activations_pkey",
+      "schema": "public",
+      "table": "shelter_activations",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "shelters_pkey",
+      "schema": "public",
+      "table": "shelters",
+      "entityType": "pks"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "organization_id",
+        "operation_code"
+      ],
+      "nullsNotDistinct": false,
+      "name": "emergency_operations_organization_operation_code_unique",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "emergency_operations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "id",
+        "organization_id"
+      ],
+      "nullsNotDistinct": false,
+      "name": "emergency_operations_id_organization_unique",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "emergency_operations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "organization_id",
+        "shelter_code"
+      ],
+      "nullsNotDistinct": false,
+      "name": "shelters_organization_shelter_code_unique",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "id",
+        "organization_id"
+      ],
+      "nullsNotDistinct": false,
+      "name": "shelters_id_organization_unique",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "code"
+      ],
+      "nullsNotDistinct": false,
+      "name": "organizations_code_key",
+      "schema": "public",
+      "table": "organizations",
+      "entityType": "uniques"
+    },
+    {
+      "value": "\"ended_at\" IS NULL OR \"started_at\" IS NULL OR \"ended_at\" >= \"started_at\"",
+      "name": "emergency_operations_ended_at_after_started_at_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "emergency_operations"
+    },
+    {
+      "value": "\"removed_at\" IS NULL OR \"removed_at\" >= \"added_at\"",
+      "name": "operation_affected_regions_removed_at_after_added_at_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "operation_affected_regions"
+    },
+    {
+      "value": "\"deactivated_at\" IS NULL OR \"deactivated_at\" >= \"activated_at\"",
+      "name": "shelter_activations_deactivated_at_after_activated_at_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "shelter_activations"
+    },
+    {
+      "value": "(\"status\" = 'ACTIVE' AND \"deactivated_at\" IS NULL) OR (\"status\" = 'DEACTIVATED' AND \"deactivated_at\" IS NOT NULL)",
+      "name": "shelter_activations_status_deactivation_timestamp_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "shelter_activations"
+    },
+    {
+      "value": "\"capacity\" >= 0",
+      "name": "shelters_capacity_non_negative_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "value": "\"latitude\" IS NULL OR \"latitude\" BETWEEN -90 AND 90",
+      "name": "shelters_latitude_range_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "value": "\"longitude\" IS NULL OR \"longitude\" BETWEEN -180 AND 180",
+      "name": "shelters_longitude_range_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "shelters"
+    },
+    {
+      "value": "(\"latitude\" IS NULL) = (\"longitude\" IS NULL)",
+      "name": "shelters_coordinates_present_together_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "shelters"
+    }
+  ],
+  "renames": []
+}
