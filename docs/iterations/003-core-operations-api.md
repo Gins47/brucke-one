@@ -1,7 +1,7 @@
 # Iteration 003 — Core Operations API
 
 **Project:** BruckeOne  
-**Status:** Checkpoint 2 complete; awaiting review
+**Status:** Checkpoint 3 complete; awaiting review
 **Goal:** Implement the V1 REST API for the core operational domain using NestJS modules, typed DTO validation, focused services, and focused HTTP/database tests.
 
 ## Preconditions
@@ -61,7 +61,7 @@ Focused tests:
 
 **Stop for review.**
 
-## Checkpoint 3 — Emergency Operations API
+## Checkpoint 3 — Emergency Operations API [x]
 
 Endpoints:
 
@@ -70,13 +70,17 @@ POST  /emergency-operations
 GET   /emergency-operations
 GET   /emergency-operations/:id
 PATCH /emergency-operations/:id
+POST  /emergency-operations/:id/activate
+POST  /emergency-operations/:id/complete
+POST  /emergency-operations/:id/cancel
 ```
 
 Rules:
 
 - Creation requires an existing organization.
 - Operation code is unique within its organization.
-- Status lifecycle rules must be explicitly defined before implementation.
+- Status lifecycle: `PLANNED → ACTIVE | CANCELLED`; `ACTIVE → COMPLETED | CANCELLED`; `COMPLETED` and `CANCELLED` are terminal.
+- `activate` sets `ACTIVE` and supplies `started_at` when it is absent. `complete` and `cancel` set their terminal status and `ended_at` without overwriting an existing end time.
 - No delete endpoint in V1; completed and cancelled operations remain historical records.
 
 Focused tests:
