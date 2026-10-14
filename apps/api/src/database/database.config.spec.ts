@@ -10,20 +10,35 @@ describe('database configuration', () => {
   it.each([undefined, '', '   '])(
     'rejects an empty database URL (%s)',
     (value) => {
+      delete process.env.DATABASE_TARGET;
       delete process.env.TEST_DATABASE_URL;
       if (value === undefined) delete process.env.DATABASE_URL;
       else process.env.DATABASE_URL = value;
-      expect(() => getDatabaseUrl()).toThrow(
-        'DATABASE_URL or TEST_DATABASE_URL is required',
-      );
+      expect(() => getDatabaseUrl()).toThrow('DATABASE_URL is required');
     },
   );
 
-  it('prefers the dedicated test database URL', () => {
+  it('uses the development database URL by default', () => {
+    process.env.DATABASE_URL = 'postgresql://development.example/bruke_one';
+    process.env.TEST_DATABASE_URL = 'postgresql://test.example/bruke_one_test';
+
+    expect(getDatabaseUrl()).toBe(process.env.DATABASE_URL);
+  });
+
+  it('uses the dedicated test database URL when explicitly selected', () => {
+    process.env.DATABASE_TARGET = 'test';
     process.env.DATABASE_URL = 'postgresql://development.example/bruke_one';
     process.env.TEST_DATABASE_URL = 'postgresql://test.example/bruke_one_test';
 
     expect(getDatabaseUrl()).toBe(process.env.TEST_DATABASE_URL);
+  });
+
+  it('requires the dedicated test database URL when test mode is selected', () => {
+    process.env.DATABASE_TARGET = 'test';
+    process.env.DATABASE_URL = 'postgresql://development.example/bruke_one';
+    delete process.env.TEST_DATABASE_URL;
+
+    expect(() => getDatabaseUrl()).toThrow('TEST_DATABASE_URL is required');
   });
 
   it('uses a bounded default connection timeout', () => {

@@ -21,7 +21,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "db:migrate:test": "DATABASE_TARGET=test TEST_DATABASE_URL=postgresql://brucke:brucke_test@127.0.0.1:5433/brucke_one_test drizzle-kit migrate --config=drizzle.config.ts",
     "test:e2e": "npm run test:integration",
-    "test:e2e:isolated": "TEST_DATABASE_URL=postgresql://brucke:brucke_test@127.0.0.1:5433/brucke_one_test jest --config ./test/jest-e2e.json --runInBand",
+    "test:e2e:isolated": "DATABASE_TARGET=test TEST_DATABASE_URL=postgresql://brucke:brucke_test@127.0.0.1:5433/brucke_one_test jest --config ./test/jest-e2e.json --runInBand",
     "test:constraints": "TEST_DATABASE_URL=postgresql://brucke:brucke_test@127.0.0.1:5433/brucke_one_test jest --config ./test/jest-e2e.json --runInBand test/core-domain-constraints.e2e-spec.ts",
     "test:integration": "sh -c 'set -eu; cleanup() { docker compose -p brucke-one-test -f test/docker-compose.test.yaml down --volumes --remove-orphans; }; trap cleanup EXIT; trap \"cleanup; exit 1\" HUP INT TERM; cleanup; docker compose -p brucke-one-test -f test/docker-compose.test.yaml up --detach --wait; npm run db:migrate:test; npm run test:e2e:isolated'"
   },

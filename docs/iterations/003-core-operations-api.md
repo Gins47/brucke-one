@@ -1,7 +1,7 @@
 # Iteration 003 — Core Operations API
 
 **Project:** BruckeOne  
-**Status:** Checkpoint 1 complete; awaiting review
+**Status:** Checkpoint 2 complete; awaiting review
 **Goal:** Implement the V1 REST API for the core operational domain using NestJS modules, typed DTO validation, focused services, and focused HTTP/database tests.
 
 ## Preconditions
@@ -32,7 +32,7 @@
 
 **Stop for review.**
 
-## Checkpoint 2 — Organizations API
+## Checkpoint 2 — Organizations API [x]
 
 Endpoints:
 
