@@ -1,6 +1,6 @@
 # Iteration 004 — Dashboard Read Models
 
-**Status:** Checkpoint 1 complete; awaiting review  
+**Status:** Checkpoint 2 complete; awaiting review
 **Goal:** Provide read-only, dashboard- and map-ready API projections over the existing operational domain.
 
 This iteration prepares the API for a future web dashboard and LangGraph AI service. It does not introduce a frontend, AI service, authentication, caching, or new domain write workflows.
@@ -47,14 +47,14 @@ Returns one organization summary and operational counts.
     "code": "BAY-RELIEF",
     "name": "Bavarian Relief Organization"
   },
-  "counts": {
-    "plannedOperations": 1,
-    "activeOperations": 2,
-    "completedOperations": 4,
-    "cancelledOperations": 1,
-    "totalShelters": 12,
-    "activeShelterActivations": 3
-  }
+  "operationCounts": {
+    "planned": 1,
+    "active": 2,
+    "completed": 4,
+    "cancelled": 1
+  },
+  "shelterCount": 12,
+  "activeShelterActivationCount": 3
 }
 ```
 
@@ -199,7 +199,7 @@ Acceptance criteria:
 - It does not call command-service methods.
 - Unit tests cover query/cursor validation helpers where applicable.
 
-### Checkpoint 2 — Organization overview
+### Checkpoint 2 — Organization overview [x]
 
 Implement:
 
