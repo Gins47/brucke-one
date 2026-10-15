@@ -1,7 +1,7 @@
 # Iteration 003 — Core Operations API
 
 **Project:** BruckeOne  
-**Status:** Checkpoint 5 complete; awaiting review
+**Status:** Checkpoint 6 complete; awaiting review
 **Goal:** Implement the V1 REST API for the core operational domain using NestJS modules, typed DTO validation, focused services, and focused HTTP/database tests.
 
 ## Preconditions
@@ -147,19 +147,19 @@ Focused tests:
 
 **Stop for review.**
 
-## Checkpoint 6 — Affected-region workflows
+## Checkpoint 6 — Affected-region workflows [x]
 
 Endpoints:
 
 ```text
-POST   /emergency-operations/:id/affected-regions
-GET    /emergency-operations/:id/affected-regions
-DELETE /emergency-operations/:id/affected-regions/:regionId
+POST /emergency-operations/:operationId/affected-regions
+GET  /emergency-operations/:operationId/affected-regions
+POST /emergency-operations/:operationId/affected-regions/:regionId/remove
 ```
 
 Rules:
 
-- The `DELETE` endpoint is a logical removal: set `removed_at`; do not delete the row.
+- The removal endpoint is a logical removal: set `removed_at`; do not delete the row.
 - The default list returns current regions only.
 - Support an explicit history option later if needed.
 

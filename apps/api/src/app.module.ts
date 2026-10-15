@@ -4,6 +4,7 @@ import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
 import { EmergencyOperationsModule } from './emergency-operations/emergency-operations.module';
 import { OrganizationsModule } from './organizations/organizations.module';
+import { OperationAffectedRegionsModule } from './operation-affected-regions/operation-affected-regions.module';
 import { SheltersModule } from './shelters/shelters.module';
 import { ShelterActivationsModule } from './shelter-activations/shelter-activations.module';
 
@@ -11,6 +12,7 @@ import { ShelterActivationsModule } from './shelter-activations/shelter-activati
   imports: [
     DatabaseModule,
     OrganizationsModule,
+    OperationAffectedRegionsModule,
     EmergencyOperationsModule,
     SheltersModule,
     ShelterActivationsModule,
