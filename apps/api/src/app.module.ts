@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { EmergencyOperationsModule } from './emergency-operations/emergency-operations.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { OperationAffectedRegionsModule } from './operation-affected-regions/operation-affected-regions.module';
@@ -11,6 +12,7 @@ import { ShelterActivationsModule } from './shelter-activations/shelter-activati
 @Module({
   imports: [
     DatabaseModule,
+    DashboardModule,
     OrganizationsModule,
     OperationAffectedRegionsModule,
     EmergencyOperationsModule,
