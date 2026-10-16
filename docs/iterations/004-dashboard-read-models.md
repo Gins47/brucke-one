@@ -1,6 +1,6 @@
 # Iteration 004 — Dashboard Read Models
 
-**Status:** Checkpoint 2 complete; awaiting review
+**Status:** Checkpoint 3 complete; awaiting review
 **Goal:** Provide read-only, dashboard- and map-ready API projections over the existing operational domain.
 
 This iteration prepares the API for a future web dashboard and LangGraph AI service. It does not introduce a frontend, AI service, authentication, caching, or new domain write workflows.
@@ -220,7 +220,7 @@ Acceptance criteria:
 - Data from another organization is not included.
 - The implementation uses aggregate queries rather than loading all rows into application memory.
 
-### Checkpoint 3 — Cursor-paginated operations list
+### Checkpoint 3 — Cursor-paginated operations list [x]
 
 Implement:
 

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, desc, eq, lt, or } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import {
   emergencyOperations,
@@ -7,10 +7,29 @@ import {
   shelterActivations,
   shelters,
 } from '../database/schema';
-import type { OrganizationDashboardOverviewResponse } from './dashboard.dto';
+import {
+  encodeDashboardOperationCursor,
+  type DashboardOperationCardResponse,
+  type DashboardOperationsListResponse,
+  type DashboardOperationsQuery,
+  type OrganizationDashboardOverviewResponse,
+} from './dashboard.dto';
 
 type OperationStatus = (typeof emergencyOperations.$inferSelect)['status'];
 type OperationStatusCount = { status: OperationStatus; count: number };
+type DashboardOperationRow = Pick<
+  typeof emergencyOperations.$inferSelect,
+  | 'id'
+  | 'operationCode'
+  | 'name'
+  | 'countryCode'
+  | 'type'
+  | 'severity'
+  | 'status'
+  | 'startedAt'
+  | 'endedAt'
+  | 'updatedAt'
+>;
 
 /** Maps grouped operation counts into the overview's complete status shape. */
 function toOperationCounts(rows: OperationStatusCount[]) {
@@ -39,6 +58,24 @@ function toOperationCounts(rows: OperationStatusCount[]) {
   }
 
   return counts;
+}
+
+/** Maps an emergency-operation projection to the compact dashboard card DTO. */
+function toOperationCard(
+  row: DashboardOperationRow,
+): DashboardOperationCardResponse {
+  return {
+    id: row.id,
+    operationCode: row.operationCode,
+    name: row.name,
+    countryCode: row.countryCode,
+    type: row.type,
+    severity: row.severity,
+    status: row.status,
+    startedAt: row.startedAt,
+    endedAt: row.endedAt,
+    updatedAt: row.updatedAt,
+  };
 }
 
 /**
@@ -99,5 +136,76 @@ export class DashboardService {
       shelterCount: shelterCountResult[0]?.count ?? 0,
       activeShelterActivationCount: activationCountResult[0]?.count ?? 0,
     };
+  }
+
+  /** Returns one organization's operations using stable cursor pagination. */
+  async getOrganizationOperations(
+    organizationId: string,
+    query: DashboardOperationsQuery,
+  ): Promise<DashboardOperationsListResponse> {
+    await this.findOrganization(organizationId);
+
+    const conditions = [eq(emergencyOperations.organizationId, organizationId)];
+
+    if (query.status) {
+      conditions.push(eq(emergencyOperations.status, query.status));
+    }
+
+    if (query.cursor) {
+      conditions.push(
+        or(
+          lt(emergencyOperations.updatedAt, query.cursor.updatedAt),
+          and(
+            eq(emergencyOperations.updatedAt, query.cursor.updatedAt),
+            lt(emergencyOperations.id, query.cursor.id),
+          ),
+        )!,
+      );
+    }
+
+    const records = await this.database.db
+      .select({
+        id: emergencyOperations.id,
+        operationCode: emergencyOperations.operationCode,
+        name: emergencyOperations.name,
+        countryCode: emergencyOperations.countryCode,
+        type: emergencyOperations.type,
+        severity: emergencyOperations.severity,
+        status: emergencyOperations.status,
+        startedAt: emergencyOperations.startedAt,
+        endedAt: emergencyOperations.endedAt,
+        updatedAt: emergencyOperations.updatedAt,
+      })
+      .from(emergencyOperations)
+      .where(and(...conditions))
+      .orderBy(
+        desc(emergencyOperations.updatedAt),
+        desc(emergencyOperations.id),
+      )
+      .limit(query.limit + 1);
+    const hasNextPage = records.length > query.limit;
+    const pageRecords = records.slice(0, query.limit);
+    const finalRecord = pageRecords.at(-1);
+
+    return {
+      items: pageRecords.map(toOperationCard),
+      nextCursor:
+        hasNextPage && finalRecord
+          ? encodeDashboardOperationCursor(finalRecord)
+          : null,
+    };
+  }
+
+  /** Finds an organization for a dashboard projection or returns not found. */
+  private async findOrganization(organizationId: string): Promise<void> {
+    const [organization] = await this.database.db
+      .select({ id: organizations.id })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1);
+
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
   }
 }
