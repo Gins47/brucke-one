@@ -4,6 +4,7 @@ import {
   dashboardOperationsQuerySchema,
   type DashboardOperationsListResponse,
   type DashboardOperationsQuery,
+  type DashboardOperationMapResponse,
   type OrganizationDashboardOverviewResponse,
 } from './dashboard.dto';
 import { DashboardService } from './dashboard.service';
@@ -29,5 +30,13 @@ export class DashboardController {
     query: DashboardOperationsQuery,
   ): Promise<DashboardOperationsListResponse> {
     return this.service.getOrganizationOperations(organizationId, query);
+  }
+
+  /** Returns the read-only map projection for one emergency operation. */
+  @Get('emergency-operations/:operationId/map')
+  getEmergencyOperationMap(
+    @Param('operationId', new ParseUUIDPipe()) operationId: string,
+  ): Promise<DashboardOperationMapResponse> {
+    return this.service.getEmergencyOperationMap(operationId);
   }
 }

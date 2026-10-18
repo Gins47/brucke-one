@@ -1,8 +1,19 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { and, count, desc, eq, lt, or } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  isNotNull,
+  isNull,
+  lt,
+  or,
+} from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import {
   emergencyOperations,
+  operationAffectedRegions,
   organizations,
   shelterActivations,
   shelters,
@@ -10,6 +21,7 @@ import {
 import {
   encodeDashboardOperationCursor,
   type DashboardOperationCardResponse,
+  type DashboardOperationMapResponse,
   type DashboardOperationsListResponse,
   type DashboardOperationsQuery,
   type OrganizationDashboardOverviewResponse,
@@ -20,6 +32,20 @@ type OperationStatusCount = { status: OperationStatus; count: number };
 type DashboardOperationRow = Pick<
   typeof emergencyOperations.$inferSelect,
   | 'id'
+  | 'operationCode'
+  | 'name'
+  | 'countryCode'
+  | 'type'
+  | 'severity'
+  | 'status'
+  | 'startedAt'
+  | 'endedAt'
+  | 'updatedAt'
+>;
+type DashboardMapOperationRow = Pick<
+  typeof emergencyOperations.$inferSelect,
+  | 'id'
+  | 'organizationId'
   | 'operationCode'
   | 'name'
   | 'countryCode'
@@ -66,6 +92,25 @@ function toOperationCard(
 ): DashboardOperationCardResponse {
   return {
     id: row.id,
+    operationCode: row.operationCode,
+    name: row.name,
+    countryCode: row.countryCode,
+    type: row.type,
+    severity: row.severity,
+    status: row.status,
+    startedAt: row.startedAt,
+    endedAt: row.endedAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+/** Maps an emergency-operation row to the map projection's operation summary. */
+function toMapOperation(
+  row: DashboardMapOperationRow,
+): DashboardOperationMapResponse['operation'] {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
     operationCode: row.operationCode,
     name: row.name,
     countryCode: row.countryCode,
@@ -196,6 +241,90 @@ export class DashboardService {
     };
   }
 
+  /** Returns current regions and active shelter locations for one operation map. */
+  async getEmergencyOperationMap(
+    operationId: string,
+  ): Promise<DashboardOperationMapResponse> {
+    const operation = await this.findOperationForMap(operationId);
+    const [affectedRegions, activeShelterRows, unmappedCountResult] =
+      await Promise.all([
+        this.database.db
+          .select({
+            id: operationAffectedRegions.id,
+            countryCode: operationAffectedRegions.countryCode,
+            regionCode: operationAffectedRegions.regionCode,
+            regionName: operationAffectedRegions.regionName,
+            addedAt: operationAffectedRegions.addedAt,
+          })
+          .from(operationAffectedRegions)
+          .where(
+            and(
+              eq(operationAffectedRegions.emergencyOperationId, operationId),
+              isNull(operationAffectedRegions.removedAt),
+            ),
+          )
+          .orderBy(
+            asc(operationAffectedRegions.countryCode),
+            asc(operationAffectedRegions.regionCode),
+            asc(operationAffectedRegions.id),
+          ),
+        this.database.db
+          .select({
+            shelterId: shelters.id,
+            shelterCode: shelters.shelterCode,
+            name: shelters.name,
+            address: shelters.address,
+            countryCode: shelters.countryCode,
+            latitude: shelters.latitude,
+            longitude: shelters.longitude,
+            capacity: shelters.capacity,
+            contactEmail: shelters.contactEmail,
+            contactPhone: shelters.contactPhone,
+            activatedAt: shelterActivations.activatedAt,
+          })
+          .from(shelterActivations)
+          .innerJoin(shelters, eq(shelterActivations.shelterId, shelters.id))
+          .where(
+            and(
+              eq(shelterActivations.emergencyOperationId, operationId),
+              eq(shelterActivations.status, 'ACTIVE'),
+              isNotNull(shelters.latitude),
+              isNotNull(shelters.longitude),
+            ),
+          ),
+        this.database.db
+          .select({ count: count(shelterActivations.id) })
+          .from(shelterActivations)
+          .innerJoin(shelters, eq(shelterActivations.shelterId, shelters.id))
+          .where(
+            and(
+              eq(shelterActivations.emergencyOperationId, operationId),
+              eq(shelterActivations.status, 'ACTIVE'),
+              or(isNull(shelters.latitude), isNull(shelters.longitude)),
+            ),
+          ),
+      ]);
+
+    return {
+      operation: toMapOperation(operation),
+      affectedRegions,
+      activeShelters: activeShelterRows.flatMap((shelter) => {
+        if (shelter.latitude === null || shelter.longitude === null) {
+          return [];
+        }
+
+        return [
+          {
+            ...shelter,
+            latitude: shelter.latitude,
+            longitude: shelter.longitude,
+          },
+        ];
+      }),
+      unmappedActiveShelterCount: unmappedCountResult[0]?.count ?? 0,
+    };
+  }
+
   /** Finds an organization for a dashboard projection or returns not found. */
   private async findOrganization(organizationId: string): Promise<void> {
     const [organization] = await this.database.db
@@ -207,5 +336,34 @@ export class DashboardService {
     if (!organization) {
       throw new NotFoundException('Organization not found');
     }
+  }
+
+  /** Finds an operation for the map projection or returns not found. */
+  private async findOperationForMap(
+    operationId: string,
+  ): Promise<DashboardMapOperationRow> {
+    const [operation] = await this.database.db
+      .select({
+        id: emergencyOperations.id,
+        organizationId: emergencyOperations.organizationId,
+        operationCode: emergencyOperations.operationCode,
+        name: emergencyOperations.name,
+        countryCode: emergencyOperations.countryCode,
+        type: emergencyOperations.type,
+        severity: emergencyOperations.severity,
+        status: emergencyOperations.status,
+        startedAt: emergencyOperations.startedAt,
+        endedAt: emergencyOperations.endedAt,
+        updatedAt: emergencyOperations.updatedAt,
+      })
+      .from(emergencyOperations)
+      .where(eq(emergencyOperations.id, operationId))
+      .limit(1);
+
+    if (!operation) {
+      throw new NotFoundException('Emergency operation not found');
+    }
+
+    return operation;
   }
 }

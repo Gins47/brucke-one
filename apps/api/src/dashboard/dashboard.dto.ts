@@ -116,3 +116,40 @@ export type DashboardOperationsListResponse = {
   items: DashboardOperationCardResponse[];
   nextCursor: string | null;
 };
+
+export type DashboardOperationMapResponse = {
+  operation: {
+    id: string;
+    organizationId: string;
+    operationCode: string;
+    name: string;
+    countryCode: string;
+    type: (typeof emergencyOperationType.enumValues)[number];
+    severity: (typeof emergencyOperationSeverity.enumValues)[number];
+    status: (typeof emergencyOperationStatus.enumValues)[number];
+    startedAt: Date | null;
+    endedAt: Date | null;
+    updatedAt: Date;
+  };
+  affectedRegions: Array<{
+    id: string;
+    countryCode: string;
+    regionCode: string;
+    regionName: string;
+    addedAt: Date;
+  }>;
+  activeShelters: Array<{
+    shelterId: string;
+    shelterCode: string;
+    name: string;
+    address: string;
+    countryCode: string;
+    latitude: number;
+    longitude: number;
+    capacity: number;
+    contactEmail: string | null;
+    contactPhone: string | null;
+    activatedAt: Date;
+  }>;
+  unmappedActiveShelterCount: number;
+};

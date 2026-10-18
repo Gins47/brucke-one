@@ -1,6 +1,6 @@
 # Iteration 004 — Dashboard Read Models
 
-**Status:** Checkpoint 3 complete; awaiting review
+**Status:** Checkpoint 4 complete; awaiting review
 **Goal:** Provide read-only, dashboard- and map-ready API projections over the existing operational domain.
 
 This iteration prepares the API for a future web dashboard and LangGraph AI service. It does not introduce a frontend, AI service, authentication, caching, or new domain write workflows.
@@ -135,7 +135,8 @@ Returns the data required to render one operation’s current map state.
     "severity": "HIGH",
     "status": "ACTIVE",
     "startedAt": "2026-10-15T08:00:00.000Z",
-    "endedAt": null
+    "endedAt": null,
+    "updatedAt": "2026-10-15T09:30:00.000Z"
   },
   "affectedRegions": [
     {
@@ -148,20 +149,17 @@ Returns the data required to render one operation’s current map state.
   ],
   "activeShelters": [
     {
-      "activationId": "uuid",
-      "activatedAt": "2026-10-15T08:30:00.000Z",
-      "shelter": {
-        "id": "uuid",
-        "shelterCode": "MUC-001",
-        "name": "Munich Community Hall",
-        "address": "Example Street 10, 80331 Munich",
-        "countryCode": "DE",
-        "latitude": 48.1351,
-        "longitude": 11.582,
-        "capacity": 250,
-        "contactEmail": "shelter@example.org",
-        "contactPhone": "+49891234567"
-      }
+      "shelterId": "uuid",
+      "shelterCode": "MUC-001",
+      "name": "Munich Community Hall",
+      "address": "Example Street 10, 80331 Munich",
+      "countryCode": "DE",
+      "latitude": 48.1351,
+      "longitude": 11.582,
+      "capacity": 250,
+      "contactEmail": "shelter@example.org",
+      "contactPhone": "+49891234567",
+      "activatedAt": "2026-10-15T08:30:00.000Z"
     }
   ],
   "unmappedActiveShelterCount": 0
@@ -243,7 +241,7 @@ Acceptance criteria:
 - The optional status filter returns only operations in that state.
 - E2E tests prove stable pagination across multiple pages.
 
-### Checkpoint 4 — Operation map projection
+### Checkpoint 4 — Operation map projection [x]
 
 Implement:
 
