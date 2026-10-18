@@ -1,6 +1,6 @@
 # Iteration 004 — Dashboard Read Models
 
-**Status:** Checkpoint 4 complete; awaiting review
+**Status:** Checkpoint 5 complete; awaiting review
 **Goal:** Provide read-only, dashboard- and map-ready API projections over the existing operational domain.
 
 This iteration prepares the API for a future web dashboard and LangGraph AI service. It does not introduce a frontend, AI service, authentication, caching, or new domain write workflows.
@@ -265,7 +265,7 @@ Acceptance criteria:
 - Shelters without complete coordinates are omitted and counted.
 - The response uses a bounded number of projection queries and has no N+1 behavior.
 
-### Checkpoint 5 — Query review and performance verification
+### Checkpoint 5 — Query review and performance verification [x]
 
 Review the final dashboard query shapes.
 
@@ -282,6 +282,92 @@ Acceptance criteria:
 - Query plans and indexing decisions are documented.
 - No speculative indexes are added.
 - Any new migration has focused integration coverage.
+
+#### Verification and query-plan review
+
+- Ran the focused dashboard suites through the isolated PostgreSQL workflow:
+  `test/dashboard.e2e-spec.ts`, `test/dashboard-operations.e2e-spec.ts`, and
+  `test/dashboard-map.e2e-spec.ts`. The suite passed with 16 tests.
+- Started `test/docker-compose.test.yaml`, applied the existing migrations with
+  `DATABASE_TARGET=test npm run db:migrate:test`, then ran the following
+  parameterized SQL using `EXPLAIN (ANALYZE, BUFFERS)`. The parameter values
+  were UUIDs selected from populated dashboard test fixtures.
+
+```sql
+-- Organization overview
+SELECT status, count(id)
+FROM emergency_operations
+WHERE organization_id = :overview_org
+GROUP BY status;
+
+SELECT count(id)
+FROM shelters
+WHERE organization_id = :overview_org;
+
+SELECT count(sa.id)
+FROM shelter_activations sa
+JOIN shelters s ON s.id = sa.shelter_id
+WHERE s.organization_id = :overview_org AND sa.status = 'ACTIVE';
+
+-- Organization operations: first page and cursor/status page
+SELECT id, operation_code, name, country_code, type, severity, status,
+       started_at, ended_at, updated_at
+FROM emergency_operations
+WHERE organization_id = :list_org
+ORDER BY updated_at DESC, id DESC
+LIMIT 26;
+
+SELECT id, operation_code, name, country_code, type, severity, status,
+       started_at, ended_at, updated_at
+FROM emergency_operations
+WHERE organization_id = :list_org
+  AND status = 'PLANNED'
+  AND (updated_at < :cursor_updated_at
+    OR (updated_at = :cursor_updated_at AND id < :cursor_id))
+ORDER BY updated_at DESC, id DESC
+LIMIT 26;
+
+-- Emergency-operation map projection
+SELECT id, organization_id, operation_code, name, country_code, type,
+       severity, status, started_at, ended_at, updated_at
+FROM emergency_operations
+WHERE id = :map_operation
+LIMIT 1;
+
+SELECT id, country_code, region_code, region_name, added_at
+FROM operation_affected_regions
+WHERE emergency_operation_id = :regions_operation AND removed_at IS NULL
+ORDER BY country_code ASC, region_code ASC, id ASC;
+
+SELECT s.id, s.shelter_code, s.name, s.address, s.country_code,
+       s.latitude, s.longitude, s.capacity, s.contact_email,
+       s.contact_phone, sa.activated_at
+FROM shelter_activations sa
+JOIN shelters s ON s.id = sa.shelter_id
+WHERE sa.emergency_operation_id = :map_operation
+  AND sa.status = 'ACTIVE'
+  AND s.latitude IS NOT NULL
+  AND s.longitude IS NOT NULL;
+
+SELECT count(sa.id)
+FROM shelter_activations sa
+JOIN shelters s ON s.id = sa.shelter_id
+WHERE sa.emergency_operation_id = :unmapped_operation
+  AND sa.status = 'ACTIVE'
+  AND (s.latitude IS NULL OR s.longitude IS NULL);
+```
+
+The plans used existing keys for operation and shelter organization lookups,
+operation ID lookup, current-region lookup, and active-shelter lookup. The
+largest dashboard fixture contained 26 operations; both operations-list plans
+used the existing organization index followed by an in-memory sort and ran in
+at most 0.074 ms. The map activation queries filtered four other active rows
+and ran in at most 0.027 ms.
+
+No index or migration was added. The isolated dataset is too small to show a
+concrete performance problem, and the observed plans do not justify an index.
+Re-run this review with representative production-scale data before adding an
+index for dashboard list ordering or operation-scoped active activations.
 
 ### Checkpoint 6 — Iteration completion
 

@@ -185,20 +185,32 @@ describe('Dashboard emergency operation map API (e2e)', () => {
 
   it('returns the requested operation summary', async () => {
     const { organization, operation } = await createActiveOperation(app);
+    const map = await getMap(app, operation.id);
 
-    expect((await getMap(app, operation.id)).operation).toMatchObject({
+    expect(map.operation).toMatchObject({
       id: operation.id,
       organizationId: organization.id,
+      name: 'Bayern Flood 2026',
       countryCode: 'DE',
       type: 'FLOOD',
       severity: 'HIGH',
       status: 'ACTIVE',
+      endedAt: null,
     });
+    expect(typeof map.operation.operationCode).toBe('string');
+    expect(typeof map.operation.startedAt).toBe('string');
+    expect(typeof map.operation.updatedAt).toBe('string');
   });
 
   it('returns current affected regions in country and region-code order', async () => {
     const { operation } = await createActiveOperation(app);
     const germanyRegion = await createAffectedRegion(
+      app,
+      operation.id,
+      'DE',
+      'DE-HE',
+    );
+    const bavariaRegion = await createAffectedRegion(
       app,
       operation.id,
       'DE',
@@ -215,7 +227,11 @@ describe('Dashboard emergency operation map API (e2e)', () => {
       (region) => region.id,
     );
 
-    expect(regionIds).toEqual([austriaRegion.id, germanyRegion.id]);
+    expect(regionIds).toEqual([
+      austriaRegion.id,
+      bavariaRegion.id,
+      germanyRegion.id,
+    ]);
   });
 
   it('excludes logically removed affected regions', async () => {
@@ -247,14 +263,22 @@ describe('Dashboard emergency operation map API (e2e)', () => {
     const { organization, operation } = await createActiveOperation(app);
     const shelter = await createShelter(app, organization.id, true);
     await createActivation(app, shelter.id, operation.id);
+    const map = await getMap(app, operation.id);
 
-    expect((await getMap(app, operation.id)).activeShelters).toEqual([
+    expect(map.activeShelters).toEqual([
       expect.objectContaining({
         shelterId: shelter.id,
+        name: 'Mapped Community Hall',
+        address: 'Example Street 10, 80331 Munich',
+        countryCode: 'DE',
         latitude: 48.1351,
         longitude: 11.582,
+        capacity: 250,
+        contactEmail: null,
+        contactPhone: null,
       }),
     ]);
+    expect(typeof map.activeShelters[0]?.activatedAt).toBe('string');
   });
 
   it('excludes deactivated shelter activations', async () => {
