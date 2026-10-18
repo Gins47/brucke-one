@@ -42,3 +42,41 @@ $ npm run test:e2e
 # test coverage
 $ npm run test:cov
 ```
+
+## Dashboard read endpoints
+
+All dashboard endpoints are read-only. Replace the placeholder UUIDs with IDs
+from your environment.
+
+### Organization overview
+
+Returns the organization identity, operation status counts, shelter count, and
+active shelter activation count.
+
+```bash
+curl http://localhost:3000/dashboard/organizations/11111111-1111-1111-1111-111111111111/overview
+```
+
+### Organization operations
+
+Returns operations sorted by `updatedAt DESC, id DESC`. `limit` defaults to 25
+and has a maximum of 100. `status` is optional. The response's `nextCursor` is
+opaque; pass it back as `cursor` to load the next page.
+
+```bash
+curl "http://localhost:3000/dashboard/organizations/11111111-1111-1111-1111-111111111111/operations?limit=25&status=ACTIVE"
+
+curl --get \
+  --data-urlencode "limit=25" \
+  --data-urlencode "cursor=<nextCursor-from-the-previous-response>" \
+  http://localhost:3000/dashboard/organizations/11111111-1111-1111-1111-111111111111/operations
+```
+
+### Emergency operation map projection
+
+Returns one operation summary, its current affected regions, active shelters
+with coordinates, and the count of active shelters without coordinates.
+
+```bash
+curl http://localhost:3000/dashboard/emergency-operations/22222222-2222-2222-2222-222222222222/map
+```

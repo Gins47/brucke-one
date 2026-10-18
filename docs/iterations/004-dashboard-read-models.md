@@ -1,6 +1,6 @@
 # Iteration 004 — Dashboard Read Models
 
-**Status:** Checkpoint 5 complete; awaiting review
+**Status:** Complete
 **Goal:** Provide read-only, dashboard- and map-ready API projections over the existing operational domain.
 
 This iteration prepares the API for a future web dashboard and LangGraph AI service. It does not introduce a frontend, AI service, authentication, caching, or new domain write workflows.
@@ -369,7 +369,7 @@ concrete performance problem, and the observed plans do not justify an index.
 Re-run this review with representative production-scale data before adding an
 index for dashboard list ordering or operation-scoped active activations.
 
-### Checkpoint 6 — Iteration completion
+### Checkpoint 6 — Iteration completion [x]
 
 Scope:
 
@@ -383,6 +383,21 @@ Acceptance criteria:
 - Build, lint, unit tests, E2E tests, and Drizzle checks pass.
 - No unrelated changes remain.
 - Dashboard contracts are documented and ready for a future frontend and AI-service iteration.
+
+#### Final acceptance summary
+
+- Implemented the read-only dashboard module and all approved endpoints:
+  - `GET /dashboard/organizations/:organizationId/overview`
+  - `GET /dashboard/organizations/:organizationId/operations`
+  - `GET /dashboard/emergency-operations/:operationId/map`
+- Focused isolated PostgreSQL coverage verifies overview aggregates, cursor
+  pagination and validation, map projections, removed-region exclusion,
+  activation filtering, coordinate handling, and not-found responses.
+- No index or migration was added because the Checkpoint 5 query-plan evidence
+  did not show a concrete performance issue.
+- Deferred work: production-scale performance review, map geometry and
+  viewport queries, caching, authentication and authorization, frontend work,
+  and the AI service.
 
 ## Out of scope
 
