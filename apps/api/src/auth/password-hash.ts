@@ -12,6 +12,11 @@ const passes = 3;
 const parallelism = 2;
 const tagLength = 32;
 const saltLength = 16;
+const maximumMemory = 262144;
+const maximumPasses = 10;
+const maximumParallelism = 4;
+const minimumTagLength = 16;
+const maximumTagLength = 64;
 
 type ParsedPasswordHash = {
   salt: Buffer;
@@ -83,7 +88,16 @@ function parsePasswordHash(value: string): ParsedPasswordHash {
     !Number.isSafeInteger(storedPasses) ||
     !Number.isSafeInteger(storedParallelism) ||
     !Number.isSafeInteger(storedTagLength) ||
-    salt.length < 16 ||
+    storedMemory < 8 * storedParallelism ||
+    storedMemory > maximumMemory ||
+    storedPasses < 2 ||
+    storedPasses > maximumPasses ||
+    storedParallelism < 2 ||
+    storedParallelism > maximumParallelism ||
+    storedTagLength < minimumTagLength ||
+    storedTagLength > maximumTagLength ||
+    salt.length < saltLength ||
+    salt.length > 64 ||
     hash.length !== storedTagLength
   ) {
     throw new Error('Invalid password hash format');
@@ -134,6 +148,10 @@ export async function verifyPassword(
     message: Buffer.from(password, 'utf8'),
     nonce: salt,
   });
+
+  if (hash.length !== derivedHash.length) {
+    return false;
+  }
 
   return timingSafeEqual(hash, derivedHash);
 }

@@ -78,6 +78,17 @@ Implement, test, review and commit each checkpoint separately. Authentication mu
 - Add focused tests for successful login, wrong credentials, and missing/invalid/expired tokens. Do not expose user password hashes.
 - No public registration or other identity features.
 
+**Status:** Complete
+
+**Authentication decisions:**
+
+- `POST /auth/login` accepts a strict `{ "username": "...", "password": "..." }` body. It normalizes usernames with trim-and-lowercase, returns the same generic `401` response for unknown users, incorrect passwords, and malformed stored hashes, and returns `{ accessToken, tokenType: "Bearer", expiresIn }` on success.
+- Password verification uses the existing versioned Node Argon2id format. Stored parameters are bounded before deriving a candidate hash, and equal-length candidate hashes are compared with `timingSafeEqual`.
+- JWT configuration requires `JWT_SECRET` (at least 32 bytes), `JWT_EXPIRES_IN`, `JWT_ISSUER`, and `JWT_AUDIENCE`. The documented local development expiry is `24h`; it is configuration, not a production default. Tokens use HS256 with `sub` set to the authenticated UUID user ID, and verification checks signature, allowed algorithm, expiry, issuer, audience, and subject format.
+- `JwtAuthenticationGuard` validates bearer tokens and places the verified user ID on the request for later checkpoints. It is not applied to existing routes until Checkpoint 4, so only the new login endpoint is public by design at this checkpoint.
+
+**Verification:** Focused authentication coverage and the complete isolated PostgreSQL E2E suite passed. The tests cover successful bootstrapped-admin login, generic invalid credentials, malformed and unsupported hashes, strict request validation, missing/invalid/expired tokens, guard subject exposure, and invalid JWT configuration.
+
 ### 4. Protect existing routes
 
 - Inventory every existing controller route. Protect all organization, emergency operation, shelter, activation, affected-region and dashboard endpoints with the admin guard. Login and any documented health endpoint are the only public exceptions.

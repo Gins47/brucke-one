@@ -55,6 +55,32 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+## Development authentication
+
+`POST /auth/login` is public during Iteration 005 Checkpoint 3. It accepts a
+strict username and password body and returns a bearer token:
+
+```bash
+curl --request POST http://localhost:3000/auth/login \
+  --header 'content-type: application/json' \
+  --data '{"username":"configured-admin-username","password":"configured-admin-password"}'
+```
+
+```json
+{
+  "accessToken": "<opaque-jwt>",
+  "tokenType": "Bearer",
+  "expiresIn": "24h"
+}
+```
+
+Set `JWT_SECRET` to a configured secret of at least 32 bytes, and set
+`JWT_EXPIRES_IN`, `JWT_ISSUER`, and `JWT_AUDIENCE` in `.env`. The local
+development example uses a 24-hour expiry; choose an explicit security policy
+for any non-local environment. Tokens use HS256 and are verified for their
+signature, expiry, issuer, audience, and UUID user subject. Existing API
+routes remain unprotected until Iteration 005 Checkpoint 4.
+
 ## Dashboard read endpoints
 
 All dashboard endpoints are read-only. Replace the placeholder UUIDs with IDs
