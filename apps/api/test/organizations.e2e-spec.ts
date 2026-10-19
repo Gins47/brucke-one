@@ -1,9 +1,14 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'node:crypto';
-import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import {
+  authenticatedRequest,
+  getTestAdminAccessToken,
+} from './test-authentication';
+
+let accessToken: string;
 
 type OrganizationResponse = {
   id: string;
@@ -25,7 +30,7 @@ async function createOrganization(
     officeAddress: string;
   }> = {},
 ): Promise<OrganizationResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/organizations')
     .send({
       code: `ORG-${randomUUID().slice(0, 26)}`,
@@ -50,6 +55,7 @@ describe('Organizations API (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
+    accessToken = await getTestAdminAccessToken(app);
   });
 
   afterAll(async () => {
@@ -74,14 +80,14 @@ describe('Organizations API (e2e)', () => {
   it('returns a persisted organization by ID and in the list', async () => {
     const organization = await createOrganization(app);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get(`/organizations/${organization.id}`)
       .expect(200)
       .expect((response) => {
         expect(response.body).toMatchObject(organization);
       });
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get('/organizations')
       .expect(200)
       .expect((response) => {
@@ -94,7 +100,7 @@ describe('Organizations API (e2e)', () => {
   it('updates only supplied fields', async () => {
     const organization = await createOrganization(app);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .patch(`/organizations/${organization.id}`)
       .send({ name: 'Updated Relief Organization' })
       .expect(200)
@@ -113,24 +119,24 @@ describe('Organizations API (e2e)', () => {
   it('rejects code, unknown fields, and an empty body on PATCH', async () => {
     const organization = await createOrganization(app);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .patch(`/organizations/${organization.id}`)
       .send({ code: 'IMMUTABLE' })
       .expect(400);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .patch(`/organizations/${organization.id}`)
       .send({ unknown: 'value' })
       .expect(400);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .patch(`/organizations/${organization.id}`)
       .send({})
       .expect(400);
   });
 
   it('returns not found for an unknown organization ID', async () => {
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get('/organizations/74967c13-7f77-4b59-95bc-fc4590ed9821')
       .expect(404);
   });
@@ -139,7 +145,7 @@ describe('Organizations API (e2e)', () => {
     const code = `DUP-${randomUUID().slice(0, 26)}`;
     await createOrganization(app, { code });
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post('/organizations')
       .send({ code, name: 'Duplicate Organization' })
       .expect(409);

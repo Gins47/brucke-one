@@ -1,9 +1,14 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'node:crypto';
-import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import {
+  authenticatedRequest,
+  getTestAdminAccessToken,
+} from './test-authentication';
+
+let accessToken: string;
 
 type OrganizationResponse = { id: string; code: string; name: string };
 type EmergencyOperationResponse = { id: string };
@@ -25,7 +30,7 @@ type DashboardOverviewResponse = {
 async function createOrganization(
   app: INestApplication<App>,
 ): Promise<OrganizationResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/organizations')
     .send({
       code: `ORG-${randomUUID().slice(0, 26)}`,
@@ -47,7 +52,7 @@ async function createOperation(
   app: INestApplication<App>,
   organizationId: string,
 ): Promise<EmergencyOperationResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/emergency-operations')
     .send({
       organizationId,
@@ -68,7 +73,7 @@ async function transitionOperation(
   operationId: string,
   command: 'activate' | 'complete' | 'cancel',
 ): Promise<void> {
-  await request(app.getHttpServer())
+  await authenticatedRequest(app, accessToken)
     .post(`/emergency-operations/${operationId}/${command}`)
     .expect(201);
 }
@@ -78,7 +83,7 @@ async function createShelter(
   app: INestApplication<App>,
   organizationId: string,
 ): Promise<ShelterResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/shelters')
     .send({
       organizationId,
@@ -99,7 +104,7 @@ async function createActivation(
   shelterId: string,
   emergencyOperationId: string,
 ): Promise<ShelterActivationResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/shelter-activations')
     .send({ shelterId, emergencyOperationId })
     .expect(201);
@@ -117,6 +122,7 @@ describe('Dashboard API (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
+    accessToken = await getTestAdminAccessToken(app);
   });
 
   afterAll(async () => {
@@ -144,11 +150,11 @@ describe('Dashboard API (e2e)', () => {
       inactiveShelter.id,
       activeOperation.id,
     );
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post(`/shelter-activations/${inactiveActivation.id}/deactivate`)
       .expect(201);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get(`/dashboard/organizations/${organization.id}/overview`)
       .expect(200)
       .expect((response) => {
@@ -169,7 +175,7 @@ describe('Dashboard API (e2e)', () => {
   it('returns zero counts when an organization has no operational data', async () => {
     const organization = await createOrganization(app);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get(`/dashboard/organizations/${organization.id}/overview`)
       .expect(200)
       .expect((response) => {
@@ -188,7 +194,7 @@ describe('Dashboard API (e2e)', () => {
   });
 
   it('returns not found for a valid but unknown organization ID', async () => {
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get(`/dashboard/organizations/${randomUUID()}/overview`)
       .expect(404);
   });

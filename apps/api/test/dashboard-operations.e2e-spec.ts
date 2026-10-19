@@ -2,9 +2,14 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
-import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import {
+  authenticatedRequest,
+  getTestAdminAccessToken,
+} from './test-authentication';
+
+let accessToken: string;
 
 type OrganizationResponse = { id: string };
 type EmergencyOperationResponse = {
@@ -38,7 +43,7 @@ type ValidationErrorResponse = {
 async function createOrganization(
   app: INestApplication<App>,
 ): Promise<OrganizationResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/organizations')
     .send({
       code: `ORG-${randomUUID().slice(0, 26)}`,
@@ -54,7 +59,7 @@ async function createOperation(
   app: INestApplication<App>,
   organizationId: string,
 ): Promise<EmergencyOperationResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/emergency-operations')
     .send({
       organizationId,
@@ -103,6 +108,7 @@ describe('Dashboard operations API (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
+    accessToken = await getTestAdminAccessToken(app);
     testDatabase = new Pool({
       connectionString: process.env.TEST_DATABASE_URL,
     });
@@ -129,7 +135,7 @@ describe('Dashboard operations API (e2e)', () => {
       await setUpdatedAt(testDatabase, operation.id, timestamps[index]);
     }
 
-    const response = await request(app.getHttpServer())
+    const response = await authenticatedRequest(app, accessToken)
       .get(`/dashboard/organizations/${organization.id}/operations`)
       .expect(200);
     const body = response.body as DashboardOperationsResponse;
@@ -169,19 +175,19 @@ describe('Dashboard operations API (e2e)', () => {
     }
 
     const firstPage = (
-      await request(app.getHttpServer())
+      await authenticatedRequest(app, accessToken)
         .get(`/dashboard/organizations/${organization.id}/operations`)
         .query({ limit: '2' })
         .expect(200)
     ).body as DashboardOperationsResponse;
     const secondPage = (
-      await request(app.getHttpServer())
+      await authenticatedRequest(app, accessToken)
         .get(`/dashboard/organizations/${organization.id}/operations`)
         .query({ limit: '2', cursor: firstPage.nextCursor })
         .expect(200)
     ).body as DashboardOperationsResponse;
     const finalPage = (
-      await request(app.getHttpServer())
+      await authenticatedRequest(app, accessToken)
         .get(`/dashboard/organizations/${organization.id}/operations`)
         .query({ limit: '2', cursor: secondPage.nextCursor })
         .expect(200)
@@ -217,11 +223,11 @@ describe('Dashboard operations API (e2e)', () => {
     const plannedOperation = await createOperation(app, organization.id);
     const activeOperation = await createOperation(app, organization.id);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post(`/emergency-operations/${activeOperation.id}/activate`)
       .expect(201);
 
-    const response = await request(app.getHttpServer())
+    const response = await authenticatedRequest(app, accessToken)
       .get(`/dashboard/organizations/${organization.id}/operations`)
       .query({ status: 'ACTIVE' })
       .expect(200);
@@ -238,7 +244,7 @@ describe('Dashboard operations API (e2e)', () => {
   });
 
   it('returns not found for a valid but unknown organization ID', async () => {
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get(`/dashboard/organizations/${randomUUID()}/operations`)
       .expect(404);
   });
@@ -255,7 +261,7 @@ describe('Dashboard operations API (e2e)', () => {
     ];
 
     for (const query of invalidQueries) {
-      const response = await request(app.getHttpServer())
+      const response = await authenticatedRequest(app, accessToken)
         .get(endpoint)
         .query(query)
         .expect(400);

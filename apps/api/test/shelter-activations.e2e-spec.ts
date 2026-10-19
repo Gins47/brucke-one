@@ -1,9 +1,14 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'node:crypto';
-import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import {
+  authenticatedRequest,
+  getTestAdminAccessToken,
+} from './test-authentication';
+
+let accessToken: string;
 
 type OrganizationResponse = { id: string };
 type ShelterResponse = { id: string; organizationId: string };
@@ -27,7 +32,7 @@ type ValidationErrorResponse = {
 async function createOrganization(
   app: INestApplication<App>,
 ): Promise<OrganizationResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/organizations')
     .send({
       code: `ORG-${randomUUID().slice(0, 26)}`,
@@ -43,7 +48,7 @@ async function createShelter(
   app: INestApplication<App>,
   organizationId: string,
 ): Promise<ShelterResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/shelters')
     .send({
       organizationId,
@@ -64,7 +69,7 @@ async function createOperation(
   organizationId: string,
   active = false,
 ): Promise<EmergencyOperationResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/emergency-operations')
     .send({
       organizationId,
@@ -78,7 +83,7 @@ async function createOperation(
   const operation = response.body as EmergencyOperationResponse;
 
   if (active) {
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post(`/emergency-operations/${operation.id}/activate`)
       .expect(201);
   }
@@ -92,7 +97,7 @@ async function createActivation(
   shelterId: string,
   emergencyOperationId: string,
 ): Promise<ShelterActivationResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/shelter-activations')
     .send({ shelterId, emergencyOperationId })
     .expect(201);
@@ -121,6 +126,7 @@ describe('ShelterActivations API (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
+    accessToken = await getTestAdminAccessToken(app);
   });
 
   afterAll(async () => {
@@ -142,14 +148,14 @@ describe('ShelterActivations API (e2e)', () => {
     });
     expect(typeof activation.activatedAt).toBe('string');
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get(`/shelter-activations/${activation.id}`)
       .expect(200)
       .expect((response) => {
         expect(response.body).toMatchObject(activation);
       });
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get('/shelter-activations')
       .expect(200)
       .expect((response) => {
@@ -164,12 +170,12 @@ describe('ShelterActivations API (e2e)', () => {
     const operation = await createOperation(app, organization.id, true);
     const shelter = await createShelter(app, organization.id);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post('/shelter-activations')
       .send({ shelterId: randomUUID(), emergencyOperationId: operation.id })
       .expect(404);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post('/shelter-activations')
       .send({ shelterId: shelter.id, emergencyOperationId: randomUUID() })
       .expect(404);
@@ -185,7 +191,7 @@ describe('ShelterActivations API (e2e)', () => {
       true,
     );
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post('/shelter-activations')
       .send({ shelterId: shelter.id, emergencyOperationId: operation.id })
       .expect(409);
@@ -196,7 +202,7 @@ describe('ShelterActivations API (e2e)', () => {
     const shelter = await createShelter(app, organization.id);
     const operation = await createOperation(app, organization.id);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post('/shelter-activations')
       .send({ shelterId: shelter.id, emergencyOperationId: operation.id })
       .expect(409);
@@ -209,7 +215,7 @@ describe('ShelterActivations API (e2e)', () => {
     const secondOperation = await createOperation(app, organization.id, true);
     await createActivation(app, shelter.id, firstOperation.id);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post('/shelter-activations')
       .send({ shelterId: shelter.id, emergencyOperationId: secondOperation.id })
       .expect(409);
@@ -221,7 +227,7 @@ describe('ShelterActivations API (e2e)', () => {
     const operation = await createOperation(app, organization.id, true);
     const activation = await createActivation(app, shelter.id, operation.id);
 
-    const deactivated = await request(app.getHttpServer())
+    const deactivated = await authenticatedRequest(app, accessToken)
       .post(`/shelter-activations/${activation.id}/deactivate`)
       .expect(201);
     expect(deactivated.body).toMatchObject({
@@ -232,7 +238,7 @@ describe('ShelterActivations API (e2e)', () => {
       typeof (deactivated.body as ShelterActivationResponse).deactivatedAt,
     ).toBe('string');
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get(`/shelter-activations/${activation.id}`)
       .expect(200)
       .expect((response) => {
@@ -251,11 +257,11 @@ describe('ShelterActivations API (e2e)', () => {
     const operation = await createOperation(app, organization.id, true);
     const activation = await createActivation(app, shelter.id, operation.id);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post(`/shelter-activations/${activation.id}/deactivate`)
       .expect(201);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post(`/shelter-activations/${activation.id}/deactivate`)
       .expect(409);
   });
@@ -270,7 +276,7 @@ describe('ShelterActivations API (e2e)', () => {
       operation.id,
     );
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post(`/shelter-activations/${firstActivation.id}/deactivate`)
       .expect(201);
 
@@ -281,7 +287,7 @@ describe('ShelterActivations API (e2e)', () => {
     );
     expect(secondActivation).toMatchObject({ status: 'ACTIVE' });
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get('/shelter-activations')
       .expect(200)
       .expect((response) => {
@@ -309,7 +315,7 @@ describe('ShelterActivations API (e2e)', () => {
   });
 
   it('returns a structured validation error for unknown create fields', async () => {
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post('/shelter-activations')
       .send({
         shelterId: randomUUID(),
@@ -321,7 +327,7 @@ describe('ShelterActivations API (e2e)', () => {
   });
 
   it('returns a structured validation error when organizationId is supplied', async () => {
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post('/shelter-activations')
       .send({
         shelterId: randomUUID(),

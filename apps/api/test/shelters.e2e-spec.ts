@@ -1,9 +1,14 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'node:crypto';
-import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import {
+  authenticatedRequest,
+  getTestAdminAccessToken,
+} from './test-authentication';
+
+let accessToken: string;
 
 type OrganizationResponse = { id: string };
 type ShelterResponse = {
@@ -29,7 +34,7 @@ type ValidationErrorResponse = {
 async function createOrganization(
   app: INestApplication<App>,
 ): Promise<OrganizationResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/organizations')
     .send({
       code: `ORG-${randomUUID().slice(0, 26)}`,
@@ -56,7 +61,7 @@ async function createShelter(
     contactPhone: string;
   }> = {},
 ): Promise<ShelterResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/shelters')
     .send({
       organizationId,
@@ -97,6 +102,7 @@ describe('Shelters API (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
+    accessToken = await getTestAdminAccessToken(app);
   });
 
   afterAll(async () => {
@@ -113,14 +119,14 @@ describe('Shelters API (e2e)', () => {
       capacity: 250,
     });
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get(`/shelters/${shelter.id}`)
       .expect(200)
       .expect((response) => {
         expect(response.body).toMatchObject(shelter);
       });
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get('/shelters')
       .expect(200)
       .expect((response) => {
@@ -131,7 +137,7 @@ describe('Shelters API (e2e)', () => {
   });
 
   it('returns not found when creating a shelter for an unknown organization', async () => {
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post('/shelters')
       .send({
         organizationId: randomUUID(),
@@ -149,7 +155,7 @@ describe('Shelters API (e2e)', () => {
     const shelterCode = `MUC-${randomUUID()}`;
     await createShelter(app, organization.id, { shelterCode });
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post('/shelters')
       .send({
         organizationId: organization.id,
@@ -166,7 +172,7 @@ describe('Shelters API (e2e)', () => {
     const organization = await createOrganization(app);
     const shelter = await createShelter(app, organization.id);
 
-    const updated = await request(app.getHttpServer())
+    const updated = await authenticatedRequest(app, accessToken)
       .patch(`/shelters/${shelter.id}`)
       .send({
         name: 'Updated Community Hall',
@@ -191,7 +197,7 @@ describe('Shelters API (e2e)', () => {
     const organization = await createOrganization(app);
     const shelter = await createShelter(app, organization.id);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .patch(`/shelters/${shelter.id}`)
       .send({ latitude: 48.14 })
       .expect(400)
@@ -202,13 +208,13 @@ describe('Shelters API (e2e)', () => {
     const organization = await createOrganization(app);
     const shelter = await createShelter(app, organization.id);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .patch(`/shelters/${shelter.id}`)
       .send({ latitude: null, longitude: 11.582 })
       .expect(400)
       .expect(expectValidationError);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .patch(`/shelters/${shelter.id}`)
       .send({ latitude: 48.1351, longitude: null })
       .expect(400)
@@ -219,7 +225,7 @@ describe('Shelters API (e2e)', () => {
     const organization = await createOrganization(app);
     const shelter = await createShelter(app, organization.id);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .patch(`/shelters/${shelter.id}`)
       .send({ latitude: null, longitude: null })
       .expect(200)
@@ -231,7 +237,7 @@ describe('Shelters API (e2e)', () => {
         });
       });
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get(`/shelters/${shelter.id}`)
       .expect(200)
       .expect((response) => {
@@ -246,7 +252,7 @@ describe('Shelters API (e2e)', () => {
     const organization = await createOrganization(app);
     const shelter = await createShelter(app, organization.id);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .patch(`/shelters/${shelter.id}`)
       .send({})
       .expect(400)
@@ -256,7 +262,7 @@ describe('Shelters API (e2e)', () => {
   it('returns structured validation errors for invalid coordinates and capacity', async () => {
     const organization = await createOrganization(app);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post('/shelters')
       .send({
         organizationId: organization.id,
@@ -271,7 +277,7 @@ describe('Shelters API (e2e)', () => {
       .expect(400)
       .expect(expectValidationError);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post('/shelters')
       .send({
         organizationId: organization.id,
@@ -289,24 +295,24 @@ describe('Shelters API (e2e)', () => {
     const organization = await createOrganization(app);
     const shelter = await createShelter(app, organization.id);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .patch(`/shelters/${shelter.id}`)
       .send({ organizationId: randomUUID() })
       .expect(400);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .patch(`/shelters/${shelter.id}`)
       .send({ shelterCode: 'IMMUTABLE' })
       .expect(400);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .patch(`/shelters/${shelter.id}`)
       .send({ unknown: 'value' })
       .expect(400);
   });
 
   it('returns not found for an unknown shelter ID', async () => {
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get('/shelters/4d274c61-79cc-4471-8e93-2c1bb2ec8183')
       .expect(404);
   });

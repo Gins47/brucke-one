@@ -95,6 +95,17 @@ Implement, test, review and commit each checkpoint separately. Authentication mu
 - Verify authorization against current database role assignment. Preserve existing business behaviour, response contracts, and data integrity guarantees.
 - Update existing E2E fixtures to authenticate against the isolated test database. Add focused tests proving unauthenticated requests are rejected across representative routes, an authenticated admin can read and write, and a non-admin identity is forbidden. Review the route inventory to prevent gaps.
 
+**Status:** Complete
+
+**Route protection:**
+
+- `AdminAuthorizationGuard` is registered globally. It first validates the existing JWT, then queries `users`, `user_roles`, and `roles` to confirm the user still has the current `ADMIN` role assignment. A valid token without a current assignment, or for a deleted user, receives `403`; missing or invalid tokens receive `401`.
+- `POST /auth/login` is explicitly marked public. No health endpoint is documented as public. The global guard protects `GET /`, all Organizations, Emergency Operations, Shelters, Shelter Activations, nested affected-region, and Dashboard routes.
+- The protected route inventory is: `GET /`; Organizations `POST /organizations`, `GET /organizations`, `GET /organizations/:id`, `PATCH /organizations/:id`; Emergency Operations create/list/get/update and `activate`, `complete`, `cancel` commands; all Shelters and Shelter Activations routes; affected-region create/list/remove routes nested under an operation; and all three Dashboard read routes.
+- ADMIN access remains application-wide for this single-organization development setup. It does not implement organization-level authorization or isolation.
+
+**Verification:** Isolated PostgreSQL E2E coverage verifies anonymous rejection for every protected controller, public login, authenticated admin reads and writes, a token without ADMIN returning `403`, ADMIN removal invalidating an issued token, and a deleted-user token returning `403`. Existing endpoint suites use the shared isolated test ADMIN helper.
+
 ### 5. Final review and documentation
 
 - Run focused unit and isolated PostgreSQL E2E/integration tests, build, lint, Drizzle migration check, and diff check.

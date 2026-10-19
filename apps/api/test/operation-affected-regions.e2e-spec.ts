@@ -1,9 +1,14 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'node:crypto';
-import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import {
+  authenticatedRequest,
+  getTestAdminAccessToken,
+} from './test-authentication';
+
+let accessToken: string;
 
 type OrganizationResponse = { id: string };
 type EmergencyOperationResponse = { id: string };
@@ -26,7 +31,7 @@ type ValidationErrorResponse = {
 async function createOrganization(
   app: INestApplication<App>,
 ): Promise<OrganizationResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/organizations')
     .send({
       code: `ORG-${randomUUID().slice(0, 26)}`,
@@ -42,7 +47,7 @@ async function createOperation(
   app: INestApplication<App>,
   organizationId: string,
 ): Promise<EmergencyOperationResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/emergency-operations')
     .send({
       organizationId,
@@ -62,7 +67,7 @@ async function createAffectedRegion(
   app: INestApplication<App>,
   operationId: string,
 ): Promise<AffectedRegionResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post(`/emergency-operations/${operationId}/affected-regions`)
     .send({ countryCode: 'DE', regionCode: 'DE-BY', regionName: 'Bavaria' })
     .expect(201);
@@ -91,6 +96,7 @@ describe('OperationAffectedRegions API (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
+    accessToken = await getTestAdminAccessToken(app);
   });
 
   afterAll(async () => {
@@ -111,7 +117,7 @@ describe('OperationAffectedRegions API (e2e)', () => {
     });
     expect(typeof region.addedAt).toBe('string');
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get(`/emergency-operations/${operation.id}/affected-regions`)
       .expect(200)
       .expect((response) => {
@@ -122,7 +128,7 @@ describe('OperationAffectedRegions API (e2e)', () => {
   });
 
   it('returns not found for an unknown emergency operation', async () => {
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post(`/emergency-operations/${randomUUID()}/affected-regions`)
       .send({ countryCode: 'DE', regionCode: 'DE-BY', regionName: 'Bavaria' })
       .expect(404);
@@ -133,7 +139,7 @@ describe('OperationAffectedRegions API (e2e)', () => {
     const operation = await createOperation(app, organization.id);
     await createAffectedRegion(app, operation.id);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post(`/emergency-operations/${operation.id}/affected-regions`)
       .send({ countryCode: 'DE', regionCode: 'DE-BY', regionName: 'Bavaria' })
       .expect(409);
@@ -144,7 +150,7 @@ describe('OperationAffectedRegions API (e2e)', () => {
     const operation = await createOperation(app, organization.id);
     const region = await createAffectedRegion(app, operation.id);
 
-    const removal = await request(app.getHttpServer())
+    const removal = await authenticatedRequest(app, accessToken)
       .post(
         `/emergency-operations/${operation.id}/affected-regions/${region.id}/remove`,
       )
@@ -154,7 +160,7 @@ describe('OperationAffectedRegions API (e2e)', () => {
       'string',
     );
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get(`/emergency-operations/${operation.id}/affected-regions`)
       .expect(200)
       .expect((response) => {
@@ -170,8 +176,8 @@ describe('OperationAffectedRegions API (e2e)', () => {
     const region = await createAffectedRegion(app, operation.id);
     const endpoint = `/emergency-operations/${operation.id}/affected-regions/${region.id}/remove`;
 
-    await request(app.getHttpServer()).post(endpoint).expect(201);
-    await request(app.getHttpServer()).post(endpoint).expect(409);
+    await authenticatedRequest(app, accessToken).post(endpoint).expect(201);
+    await authenticatedRequest(app, accessToken).post(endpoint).expect(409);
   });
 
   it('allows the same region to be added again after logical removal', async () => {
@@ -179,7 +185,7 @@ describe('OperationAffectedRegions API (e2e)', () => {
     const operation = await createOperation(app, organization.id);
     const originalRegion = await createAffectedRegion(app, operation.id);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post(
         `/emergency-operations/${operation.id}/affected-regions/${originalRegion.id}/remove`,
       )
@@ -187,7 +193,7 @@ describe('OperationAffectedRegions API (e2e)', () => {
     const replacementRegion = await createAffectedRegion(app, operation.id);
 
     expect(replacementRegion.id).not.toBe(originalRegion.id);
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get(`/emergency-operations/${operation.id}/affected-regions`)
       .expect(200)
       .expect((response) => {
@@ -203,12 +209,12 @@ describe('OperationAffectedRegions API (e2e)', () => {
     const secondOperation = await createOperation(app, organization.id);
     const region = await createAffectedRegion(app, firstOperation.id);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post(
         `/emergency-operations/${firstOperation.id}/affected-regions/${randomUUID()}/remove`,
       )
       .expect(404);
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post(
         `/emergency-operations/${secondOperation.id}/affected-regions/${region.id}/remove`,
       )
@@ -220,7 +226,7 @@ describe('OperationAffectedRegions API (e2e)', () => {
     const operation = await createOperation(app, organization.id);
     const endpoint = `/emergency-operations/${operation.id}/affected-regions`;
 
-    const unknownField = await request(app.getHttpServer())
+    const unknownField = await authenticatedRequest(app, accessToken)
       .post(endpoint)
       .send({
         countryCode: 'DE',
@@ -231,7 +237,7 @@ describe('OperationAffectedRegions API (e2e)', () => {
       .expect(400);
     expectValidationError(unknownField);
 
-    const timestamps = await request(app.getHttpServer())
+    const timestamps = await authenticatedRequest(app, accessToken)
       .post(endpoint)
       .send({
         countryCode: 'DE',

@@ -1,9 +1,14 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'node:crypto';
-import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import {
+  authenticatedRequest,
+  getTestAdminAccessToken,
+} from './test-authentication';
+
+let accessToken: string;
 
 type OrganizationResponse = { id: string };
 type EmergencyOperationResponse = {
@@ -29,7 +34,7 @@ type ValidationErrorResponse = {
 async function createOrganization(
   app: INestApplication<App>,
 ): Promise<OrganizationResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/organizations')
     .send({
       code: `ORG-${randomUUID().slice(0, 26)}`,
@@ -54,7 +59,7 @@ async function createOperation(
     startedAt: string;
   }> = {},
 ): Promise<EmergencyOperationResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/emergency-operations')
     .send({
       organizationId,
@@ -81,6 +86,7 @@ describe('EmergencyOperations API (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
+    accessToken = await getTestAdminAccessToken(app);
   });
 
   afterAll(async () => {
@@ -98,14 +104,14 @@ describe('EmergencyOperations API (e2e)', () => {
       severity: 'HIGH',
     });
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get(`/emergency-operations/${operation.id}`)
       .expect(200)
       .expect((response) => {
         expect(response.body).toMatchObject(operation);
       });
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get('/emergency-operations')
       .expect(200)
       .expect((response) => {
@@ -116,7 +122,7 @@ describe('EmergencyOperations API (e2e)', () => {
   });
 
   it('returns not found when creating an operation for an unknown organization', async () => {
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post('/emergency-operations')
       .send({
         organizationId: randomUUID(),
@@ -132,7 +138,7 @@ describe('EmergencyOperations API (e2e)', () => {
   it('returns structured validation errors for an invalid operation timeline', async () => {
     const organization = await createOrganization(app);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post('/emergency-operations')
       .send({
         organizationId: organization.id,
@@ -164,17 +170,17 @@ describe('EmergencyOperations API (e2e)', () => {
     const organization = await createOrganization(app);
     const operation = await createOperation(app, organization.id);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .patch(`/emergency-operations/${operation.id}`)
       .send({ organizationId: randomUUID() })
       .expect(400);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .patch(`/emergency-operations/${operation.id}`)
       .send({ operationCode: 'IMMUTABLE' })
       .expect(400);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .patch(`/emergency-operations/${operation.id}`)
       .send({ unknown: 'value' })
       .expect(400);
@@ -185,7 +191,7 @@ describe('EmergencyOperations API (e2e)', () => {
     const operation = await createOperation(app, organization.id);
     const startedAt = '2026-10-15T10:00:00.000Z';
 
-    const updated = await request(app.getHttpServer())
+    const updated = await authenticatedRequest(app, accessToken)
       .patch(`/emergency-operations/${operation.id}`)
       .send({ name: 'Updated Flood Operation', startedAt })
       .expect(200);
@@ -196,7 +202,7 @@ describe('EmergencyOperations API (e2e)', () => {
       startedAt,
     });
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get(`/emergency-operations/${operation.id}`)
       .expect(200)
       .expect((response) => {
@@ -211,7 +217,7 @@ describe('EmergencyOperations API (e2e)', () => {
     const organization = await createOrganization(app);
     const operation = await createOperation(app, organization.id);
 
-    const activated = await request(app.getHttpServer())
+    const activated = await authenticatedRequest(app, accessToken)
       .post(`/emergency-operations/${operation.id}/activate`)
       .expect(201);
     expect(activated.body).toMatchObject({
@@ -222,7 +228,7 @@ describe('EmergencyOperations API (e2e)', () => {
       typeof (activated.body as EmergencyOperationResponse).startedAt,
     ).toBe('string');
 
-    const completed = await request(app.getHttpServer())
+    const completed = await authenticatedRequest(app, accessToken)
       .post(`/emergency-operations/${operation.id}/complete`)
       .expect(201);
     expect(completed.body).toMatchObject({
@@ -238,13 +244,13 @@ describe('EmergencyOperations API (e2e)', () => {
     const organization = await createOrganization(app);
     const operation = await createOperation(app, organization.id);
 
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post(`/emergency-operations/${operation.id}/complete`)
       .expect(409);
   });
 
   it('returns not found for an unknown emergency operation ID', async () => {
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get('/emergency-operations/b740fd73-661c-435e-ba99-ad7b1ce807a9')
       .expect(404);
   });

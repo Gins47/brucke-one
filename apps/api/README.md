@@ -79,7 +79,10 @@ Set `JWT_SECRET` to a configured secret of at least 32 bytes, and set
 development example uses a 24-hour expiry; choose an explicit security policy
 for any non-local environment. Tokens use HS256 and are verified for their
 signature, expiry, issuer, audience, and UUID user subject. Existing API
-routes remain unprotected until Iteration 005 Checkpoint 4.
+routes require a bearer token for a user with a current `ADMIN` role assignment.
+`POST /auth/login` is the only public API route. ADMIN access is
+application-wide in this development setup; it does not provide
+organization-level isolation.
 
 ## Dashboard read endpoints
 

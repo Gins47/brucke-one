@@ -8,7 +8,8 @@ import { JwtService } from '@nestjs/jwt';
 
 import { getJwtConfig } from './jwt.config';
 
-type AuthenticatedRequest = {
+/** Represents a request after a verified JWT subject has been attached. */
+export type AuthenticatedRequest = {
   headers: { authorization?: string };
   authenticatedUserId?: string;
 };

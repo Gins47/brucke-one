@@ -1,9 +1,14 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'node:crypto';
-import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import {
+  authenticatedRequest,
+  getTestAdminAccessToken,
+} from './test-authentication';
+
+let accessToken: string;
 
 type OrganizationResponse = { id: string };
 type EmergencyOperationResponse = { id: string };
@@ -51,7 +56,7 @@ type DashboardMapResponse = {
 async function createOrganization(
   app: INestApplication<App>,
 ): Promise<OrganizationResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/organizations')
     .send({
       code: `ORG-${randomUUID().slice(0, 26)}`,
@@ -67,7 +72,7 @@ async function createOperation(
   app: INestApplication<App>,
   organizationId: string,
 ): Promise<EmergencyOperationResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/emergency-operations')
     .send({
       organizationId,
@@ -88,7 +93,7 @@ async function createShelter(
   organizationId: string,
   mapped: boolean,
 ): Promise<ShelterResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/shelters')
     .send({
       organizationId,
@@ -111,7 +116,7 @@ async function createAffectedRegion(
   countryCode: string,
   regionCode: string,
 ): Promise<AffectedRegionResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post(`/emergency-operations/${operationId}/affected-regions`)
     .send({ countryCode, regionCode, regionName: `Region ${regionCode}` })
     .expect(201);
@@ -125,7 +130,7 @@ async function createActivation(
   shelterId: string,
   operationId: string,
 ): Promise<ShelterActivationResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .post('/shelter-activations')
     .send({ shelterId, emergencyOperationId: operationId })
     .expect(201);
@@ -138,7 +143,7 @@ async function activateOperation(
   app: INestApplication<App>,
   operationId: string,
 ): Promise<void> {
-  await request(app.getHttpServer())
+  await authenticatedRequest(app, accessToken)
     .post(`/emergency-operations/${operationId}/activate`)
     .expect(201);
 }
@@ -148,7 +153,7 @@ async function getMap(
   app: INestApplication<App>,
   operationId: string,
 ): Promise<DashboardMapResponse> {
-  const response = await request(app.getHttpServer())
+  const response = await authenticatedRequest(app, accessToken)
     .get(`/dashboard/emergency-operations/${operationId}/map`)
     .expect(200);
 
@@ -177,6 +182,7 @@ describe('Dashboard emergency operation map API (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
+    accessToken = await getTestAdminAccessToken(app);
   });
 
   afterAll(async () => {
@@ -248,7 +254,7 @@ describe('Dashboard emergency operation map API (e2e)', () => {
       'DE',
       'DE-HE',
     );
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post(
         `/emergency-operations/${operation.id}/affected-regions/${removedRegion.id}/remove`,
       )
@@ -285,7 +291,7 @@ describe('Dashboard emergency operation map API (e2e)', () => {
     const { organization, operation } = await createActiveOperation(app);
     const shelter = await createShelter(app, organization.id, true);
     const activation = await createActivation(app, shelter.id, operation.id);
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .post(`/shelter-activations/${activation.id}/deactivate`)
       .expect(201);
 
@@ -317,7 +323,7 @@ describe('Dashboard emergency operation map API (e2e)', () => {
   });
 
   it('returns not found for a valid but unknown operation ID', async () => {
-    await request(app.getHttpServer())
+    await authenticatedRequest(app, accessToken)
       .get(`/dashboard/emergency-operations/${randomUUID()}/map`)
       .expect(404);
   });
