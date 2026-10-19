@@ -1,6 +1,6 @@
 # Iteration 005 — Development Admin Authentication
 
-**Status:** In progress  
+**Status:** Complete
 **Prerequisite:** Iterations 001–004 complete
 
 ## Goal and boundaries
@@ -112,6 +112,16 @@ Implement, test, review and commit each checkpoint separately. Authentication mu
 - Document `.env.example` placeholders, bootstrap, login, bearer-token usage, route protection, and how to reuse existing organization data in the README. Do not include real credentials.
 - Document the global-admin/single-organization limitation and deferred production security and tenant isolation work.
 - Mark the iteration complete only after all checkpoints and review findings are resolved.
+
+**Status:** Complete
+
+**Final acceptance summary:**
+
+- `POST /auth/login` issues a verified, expiring JWT for the configured ADMIN user. It is the only public API route; no public health endpoint is defined.
+- The global ADMIN authorization guard protects `GET /`, every operational endpoint, and all Dashboard read endpoints. It verifies the current database role assignment, so a removed assignment or deleted user cannot continue to use an issued token.
+- Focused authentication and authorization coverage, along with the complete isolated PostgreSQL E2E suite, validates login, bootstrap, token verification, and protected-route access. Final verification passed: E2E tests, build, lint, Drizzle migration check, and diff check.
+- The initial identity schema migration is the only migration added for this iteration. No speculative index or further migration was introduced.
+- Deferred work includes production-scale credential lifecycle and rotation, session and token revocation, organization-level authorization and isolation, rate limiting, TLS, recovery, frontend authentication, and any public-deployment security design.
 
 ## Out of scope
 

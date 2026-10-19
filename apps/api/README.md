@@ -29,6 +29,29 @@ only warn when the active runtime is incompatible.
 $ npm install
 ```
 
+## Local development authentication
+
+Use placeholders in your local `.env`; never commit credentials or signing
+secrets. The following is the minimum development authentication setup:
+
+```ini
+NODE_ENV=development
+DATABASE_URL=postgresql://<user>:<password>@127.0.0.1:5432/<database>
+ADMIN_BOOTSTRAP_ENABLED=true
+ADMIN_USERNAME=<development-admin-username>
+ADMIN_PASSWORD=<development-admin-password>
+JWT_SECRET=<at-least-32-byte-signing-secret>
+JWT_EXPIRES_IN=24h
+JWT_ISSUER=brucke-one-api
+JWT_AUDIENCE=brucke-one-api
+```
+
+Bootstrap is disabled by default. With `ADMIN_BOOTSTRAP_ENABLED=true` in
+development, application startup creates the configured ADMIN user only when
+it is absent. Later starts preserve its password and role assignment. Startup
+fails if the configured username already exists without ADMIN; it never
+promotes that user automatically.
+
 ## Compile and run the project
 
 ```bash
@@ -57,8 +80,14 @@ $ npm run test:cov
 
 ## Development authentication
 
-`POST /auth/login` is public during Iteration 005 Checkpoint 3. It accepts a
-strict username and password body and returns a bearer token:
+Start the API after configuring `.env`:
+
+```bash
+npm run start:dev
+```
+
+`POST /auth/login` is the only public API route. It accepts a strict username
+and password body and returns a bearer token:
 
 ```bash
 curl --request POST http://localhost:3000/auth/login \
@@ -80,9 +109,16 @@ development example uses a 24-hour expiry; choose an explicit security policy
 for any non-local environment. Tokens use HS256 and are verified for their
 signature, expiry, issuer, audience, and UUID user subject. Existing API
 routes require a bearer token for a user with a current `ADMIN` role assignment.
-`POST /auth/login` is the only public API route. ADMIN access is
-application-wide in this development setup; it does not provide
-organization-level isolation.
+There is no public health endpoint. Send the token with protected requests:
+
+```bash
+curl http://localhost:3000/organizations \
+  --header 'Authorization: Bearer <access-token>'
+```
+
+ADMIN access is application-wide in this development setup; it does not
+provide organization-level isolation. This is a single trusted-admin setup
+without production session management, token revocation, or tenant isolation.
 
 ## Dashboard read endpoints
 
@@ -95,7 +131,8 @@ Returns the organization identity, operation status counts, shelter count, and
 active shelter activation count.
 
 ```bash
-curl http://localhost:3000/dashboard/organizations/11111111-1111-1111-1111-111111111111/overview
+curl http://localhost:3000/dashboard/organizations/11111111-1111-1111-1111-111111111111/overview \
+  --header 'Authorization: Bearer <access-token>'
 ```
 
 ### Organization operations
@@ -105,11 +142,13 @@ and has a maximum of 100. `status` is optional. The response's `nextCursor` is
 opaque; pass it back as `cursor` to load the next page.
 
 ```bash
-curl "http://localhost:3000/dashboard/organizations/11111111-1111-1111-1111-111111111111/operations?limit=25&status=ACTIVE"
+curl "http://localhost:3000/dashboard/organizations/11111111-1111-1111-1111-111111111111/operations?limit=25&status=ACTIVE" \
+  --header 'Authorization: Bearer <access-token>'
 
 curl --get \
   --data-urlencode "limit=25" \
   --data-urlencode "cursor=<nextCursor-from-the-previous-response>" \
+  --header 'Authorization: Bearer <access-token>' \
   http://localhost:3000/dashboard/organizations/11111111-1111-1111-1111-111111111111/operations
 ```
 
@@ -119,5 +158,6 @@ Returns one operation summary, its current affected regions, active shelters
 with coordinates, and the count of active shelters without coordinates.
 
 ```bash
-curl http://localhost:3000/dashboard/emergency-operations/22222222-2222-2222-2222-222222222222/map
+curl http://localhost:3000/dashboard/emergency-operations/22222222-2222-2222-2222-222222222222/map \
+  --header 'Authorization: Bearer <access-token>'
 ```
