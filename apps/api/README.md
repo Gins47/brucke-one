@@ -13,6 +13,18 @@ start a dedicated PostgreSQL container, apply the reviewed migrations, and
 remove the container and its volume when they finish. They use
 `TEST_DATABASE_URL` and never use the development `DATABASE_URL`.
 
+## Runtime requirement
+
+The API requires Node.js 24.7.0 or later for its built-in Argon2id password
+hashing support. From `apps/api`, use the pinned development version:
+
+```bash
+nvm use
+```
+
+The `engines.node` field communicates this requirement to npm, but npm may
+only warn when the active runtime is incompatible.
+
 ```bash
 $ npm install
 ```

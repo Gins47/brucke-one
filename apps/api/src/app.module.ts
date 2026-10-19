@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { EmergencyOperationsModule } from './emergency-operations/emergency-operations.module';
@@ -12,6 +13,7 @@ import { ShelterActivationsModule } from './shelter-activations/shelter-activati
 @Module({
   imports: [
     DatabaseModule,
+    AuthModule,
     DashboardModule,
     OrganizationsModule,
     OperationAffectedRegionsModule,

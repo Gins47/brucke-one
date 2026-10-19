@@ -62,6 +62,16 @@ Implement, test, review and commit each checkpoint separately. Authentication mu
 - If the user exists, preserve its password and details. Verify it is already an admin; otherwise fail without promotion. Do not log credentials.
 - Test first creation and password verification, repeated bootstrap with a changed environment password, concurrent bootstrap, and existing non-admin rejection. Use the isolated test database.
 
+**Status:** Complete
+
+**Bootstrap decisions:**
+
+- Bootstrap reads `ADMIN_BOOTSTRAP_ENABLED`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD`. It is disabled unless explicitly set to `true`, and may run only when `NODE_ENV` is `development` (or unset for local development).
+- Passwords use Node's built-in asynchronous `node:crypto` Argon2id API rather than an external dependency. Node.js 24.7.0 or later is required.
+- Stored hashes use `argon2id$v1$m=65536,t=3,p=2,l=32$<salt-base64url>$<hash-base64url>`. Every new password uses a fresh 16-byte random salt; memory is 65,536 KiB, passes are 3, parallelism is 2, and output length is 32 bytes.
+- Bootstrap uses a transaction and database uniqueness constraints to create the `ADMIN` role, user, and role assignment. Existing users are never changed; an existing user without the `ADMIN` role fails startup.
+- Isolated Jest application tests skip automatic bootstrap and exercise it directly with explicit test credentials and development settings.
+
 ### 3. Login and JWT authentication
 
 - Add local username/password login, Argon2id verification, JWT issuance, configuration validation, and a small authentication guard.
