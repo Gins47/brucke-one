@@ -15,6 +15,13 @@ export type Organization = {
   updatedAt: string;
 };
 
+export type OrganizationDashboardOverview = {
+  organization: Pick<Organization, 'id' | 'code' | 'name'>;
+  operationCounts: { planned: number; active: number; completed: number; cancelled: number };
+  shelterCount: number;
+  activeShelterActivationCount: number;
+};
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -57,5 +64,12 @@ export function createApiClient(baseUrl: string, onUnauthorized: () => void) {
       request<Organization[]>('/organizations', {
         headers: { Authorization: `Bearer ${accessToken}` },
       }),
+    /** Loads the dashboard overview for one selected organization. */
+    getOrganizationOverview: (accessToken: string, organizationId: string, signal?: AbortSignal) =>
+      request<OrganizationDashboardOverview>(`/dashboard/organizations/${organizationId}/overview`, {
+        headers: { Authorization: `Bearer ${accessToken}` }, signal,
+      }),
   };
 }
+
+export type ApiClient = ReturnType<typeof createApiClient>;

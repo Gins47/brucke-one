@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import {
   ApiError,
+  type ApiClient,
   createApiClient,
   type Organization,
 } from '@/lib/api-client';
@@ -19,6 +20,7 @@ type SessionContextValue = SessionState & {
   organizationsStatus: 'idle' | 'loading' | 'ready' | 'error';
   organizationsError: string | null;
   authNotice: string | null;
+  api: ApiClient;
   login: (username: string, password: string) => Promise<string | null>;
   loadOrganizations: () => Promise<void>;
   selectOrganization: (organization: Organization) => void;
@@ -57,6 +59,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     organizationsStatus,
     organizationsError,
     authNotice,
+    api,
     login: async (username, password) => {
       try {
         const response = await api.login(username, password);

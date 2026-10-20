@@ -99,6 +99,15 @@ These paths are documentation only for now. Their routes and links are introduce
 - Display correct counts and loading, empty and error states. Keep dashboard data scoped to the selected organization.
 - Focus tests on rendering real API responses and refreshing data after a switch.
 
+**Status:** Complete
+
+**Implementation record:**
+
+- The selected organization dashboard calls `GET /dashboard/organizations/:organizationId/overview` and displays the returned organization identity, operation-status counts, shelter count, and active shelter activation count.
+- The overview replaces its state with a loading state whenever selection changes. Its request is aborted and its result ignored on selection change, logout, or unmount, so an earlier organization response cannot replace the current overview.
+- Operations pagination and status filters remain deferred to Checkpoint 4.
+- The approved ongoing-operations table is deferred to Checkpoint 4, where it will use the existing cursor-paginated operations endpoint.
+
 ### 4. Shelters and emergency operations
 
 - Display selected-organization shelters, accurately noting the unpaginated API limitation.

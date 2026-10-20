@@ -43,9 +43,9 @@ export function DashboardShell({
       </aside>
       <main className="min-h-screen md:ml-72">
         <header className="border-b border-slate-200 bg-white px-5 py-4 sm:px-8">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
             <Brand compact tone="light" />
-            <div className="flex items-center gap-3">
+            <div className="ml-auto flex shrink-0 items-center gap-3">
               <Badge tone="blue">Development admin</Badge>
               <button className="text-sm font-semibold text-blue-700 hover:text-blue-900" onClick={onLogout} type="button">
                 Log out
@@ -60,11 +60,11 @@ export function DashboardShell({
               tone="light"
             />
           </div>
-          <div className="mx-auto mt-4 max-w-6xl md:hidden">
+          <div className="mx-auto mt-4 max-w-7xl md:hidden">
             <Navigation tone="light" />
           </div>
         </header>
-        <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">{children}</div>
+        <div className="mx-auto w-full max-w-7xl px-5 py-8 sm:px-8 sm:py-12">{children}</div>
       </main>
     </div>
   );
