@@ -83,6 +83,16 @@ These paths are documentation only for now. Their routes and links are introduce
 - If browser-to-API calls require CORS changes, make only the minimal local-development change and cover it appropriately.
 - Test successful/failed login, selection/switching, logout and session reset on reload where practical.
 
+**Status:** Complete
+
+**Implementation record:**
+
+- The frontend now has public `/login`, protected `/organizations`, and protected `/` routes. Login calls the existing `POST /auth/login` contract through a small typed client. The access token and selected organization live only in React memory; refresh clears both.
+- `/organizations` loads the existing authenticated organization list, supports local filtering of that small loaded list, and selects an organization. The shared sidebar switcher changes the selection at any time. No organization-scoped request exists in this checkpoint, so late-response protection is deferred to the checkpoint that adds scoped dashboard, shelter, or operation requests.
+- Client-side logout clears authentication and organization state. Protected-request `401` responses also clear that state, route the user to `/login`, and show a short in-memory session-expired notice. `403`, network, and server errors use generic user-facing messages without including credentials or tokens.
+- The Nest API enables CORS only when `NODE_ENV=development`, for `WEB_ORIGIN` (default `http://localhost:3001`), with `Content-Type` and `Authorization` headers. No wildcard origin or production CORS policy was added.
+- Focused frontend tests cover login request handling, failed login, protected-request `401` clearing, logout state clearing, and selection-scope invalidation. Focused API tests cover the narrow development CORS policy.
+
 ### 3. Dashboard and organization overview
 
 - Connect the selected organization to the dashboard overview and organizations page.

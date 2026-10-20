@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
+import type { Organization } from '@/lib/api-client';
 
 const navigationItems = [
   'Dashboard',
@@ -10,16 +11,31 @@ const navigationItems = [
 
 type DashboardShellProps = {
   children: ReactNode;
+  organizations: Organization[];
+  selectedOrganization: Organization | null;
+  onSelectOrganization: (organizationId: string) => void;
+  onLogout: () => void;
 };
 
 type SurfaceTone = 'dark' | 'light';
 
 /** Provides the shared responsive navigation and content frame for later dashboard pages. */
-export function DashboardShell({ children }: DashboardShellProps) {
+export function DashboardShell({
+  children,
+  organizations,
+  selectedOrganization,
+  onSelectOrganization,
+  onLogout,
+}: DashboardShellProps) {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
       <aside className="hidden w-72 shrink-0 border-r border-slate-800 bg-slate-950 p-6 text-slate-100 md:fixed md:inset-y-0 md:flex md:flex-col">
         <Brand />
+        <OrganizationSwitcher
+          organizations={organizations}
+          selectedOrganization={selectedOrganization}
+          onSelectOrganization={onSelectOrganization}
+        />
         <Navigation />
         <p className="mt-auto text-sm leading-6 text-slate-400">
           Operational information is protected and available after login.
@@ -29,7 +45,20 @@ export function DashboardShell({ children }: DashboardShellProps) {
         <header className="border-b border-slate-200 bg-white px-5 py-4 sm:px-8">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
             <Brand compact tone="light" />
-            <Badge tone="blue">Dashboard foundation</Badge>
+            <div className="flex items-center gap-3">
+              <Badge tone="blue">Development admin</Badge>
+              <button className="text-sm font-semibold text-blue-700 hover:text-blue-900" onClick={onLogout} type="button">
+                Log out
+              </button>
+            </div>
+          </div>
+          <div className="mt-4 md:hidden">
+            <OrganizationSwitcher
+              organizations={organizations}
+              selectedOrganization={selectedOrganization}
+              onSelectOrganization={onSelectOrganization}
+              tone="light"
+            />
           </div>
           <div className="mx-auto mt-4 max-w-6xl md:hidden">
             <Navigation tone="light" />
@@ -37,6 +66,45 @@ export function DashboardShell({ children }: DashboardShellProps) {
         </header>
         <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">{children}</div>
       </main>
+    </div>
+  );
+}
+
+/** Lets the administrator change the current in-memory organization selection. */
+function OrganizationSwitcher({
+  organizations,
+  selectedOrganization,
+  onSelectOrganization,
+  tone = 'dark',
+}: {
+  organizations: Organization[];
+  selectedOrganization: Organization | null;
+  onSelectOrganization: (organizationId: string) => void;
+  tone?: SurfaceTone;
+}) {
+  const labelColor = tone === 'dark' ? 'text-slate-300' : 'text-slate-700';
+  const controlColor = tone === 'dark'
+    ? 'border-slate-700 bg-slate-900 text-white'
+    : 'border-slate-300 bg-white text-slate-950';
+
+  return (
+    <div className="mt-8">
+      <label className={`mb-2 block text-xs font-semibold uppercase tracking-[0.16em] ${labelColor}`} htmlFor={`organization-switcher-${tone}`}>
+        Organization
+      </label>
+      <select
+        className={`w-full rounded-md border px-3 py-2 text-sm ${controlColor}`}
+        id={`organization-switcher-${tone}`}
+        onChange={(event) => onSelectOrganization(event.target.value)}
+        value={selectedOrganization?.id ?? ''}
+      >
+        <option value="">Select an organization</option>
+        {organizations.map((organization) => (
+          <option key={organization.id} value={organization.id}>
+            {organization.name}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

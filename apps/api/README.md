@@ -13,6 +13,12 @@ start a dedicated PostgreSQL container, apply the reviewed migrations, and
 remove the container and its volume when they finish. They use
 `TEST_DATABASE_URL` and never use the development `DATABASE_URL`.
 
+When the local frontend runs on `http://localhost:3001`, set
+`NODE_ENV=development` and `WEB_ORIGIN=http://localhost:3001` in the API `.env`.
+The API then permits only that origin and the `Content-Type` and `Authorization`
+headers through CORS. CORS is not enabled by this configuration outside
+development.
+
 ## Runtime requirement
 
 The API requires Node.js 24.7.0 or later for its built-in Argon2id password
