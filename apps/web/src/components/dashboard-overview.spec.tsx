@@ -28,6 +28,15 @@ describe('DashboardOverview', () => {
     expect(screen.getByText('6')).toBeTruthy();
     expect(screen.getByText('Planned operations')).toBeTruthy();
     expect(screen.getByText('2')).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: /active operations/i }).getAttribute('href'),
+    ).toBe('/operations?status=ACTIVE');
+    expect(
+      screen.getByRole('link', { name: /planned operations/i }).getAttribute('href'),
+    ).toBe('/operations?status=PLANNED');
+    expect(screen.getByRole('link', { name: /shelters/i }).getAttribute('href')).toBe(
+      '/shelters',
+    );
   });
 
   it('renders the error state when the overview request fails', async () => {

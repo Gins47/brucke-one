@@ -1,12 +1,16 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { Badge } from '@/components/ui/badge';
-import type { Organization } from '@/lib/api-client';
+import { Badge } from './ui/badge';
+import type { Organization } from '../lib/api-client';
 
 const navigationItems = [
-  'Dashboard',
-  'Organizations',
-  'Shelters',
-  'Emergency operations',
+  { label: 'Dashboard', href: '/' },
+  { label: 'Organizations', href: '/organizations' },
+  { label: 'Shelters', href: '/shelters' },
+  { label: 'Emergency operations', href: '/operations' },
 ] as const;
 
 type DashboardShellProps = {
@@ -19,7 +23,7 @@ type DashboardShellProps = {
 
 type SurfaceTone = 'dark' | 'light';
 
-/** Provides the shared responsive navigation and content frame for later dashboard pages. */
+/** Provides the shared responsive navigation and content frame for dashboard pages. */
 export function DashboardShell({
   children,
   organizations,
@@ -122,13 +126,13 @@ function Brand({ compact = false, tone = 'dark' }: { compact?: boolean; tone?: S
   );
 }
 
-/** Lists the planned dashboard areas without presenting unfinished routes as links. */
+/** Lists the available dashboard areas and highlights the current route. */
 function Navigation({ tone = 'dark' }: { tone?: SurfaceTone }) {
+  const pathname = usePathname();
   const labelColor = tone === 'dark' ? 'text-slate-400' : 'text-slate-600';
   const itemColor = tone === 'dark' ? 'text-slate-300' : 'text-slate-700';
   const activeColor =
-    tone === 'dark' ? 'first:bg-slate-800 first:text-white' : 'first:bg-blue-700 first:text-white';
-  const noteColor = tone === 'dark' ? 'text-slate-400' : 'text-slate-600';
+    tone === 'dark' ? 'bg-slate-800 text-white' : 'bg-blue-700 text-white';
 
   return (
     <nav aria-label="Dashboard areas" className="mt-10 md:mt-12">
@@ -137,17 +141,18 @@ function Navigation({ tone = 'dark' }: { tone?: SurfaceTone }) {
       </p>
       <ul className="grid gap-1 sm:grid-cols-2 md:block" role="list">
         {navigationItems.map((item) => (
-          <li
-            className={`rounded-md px-3 py-2 text-sm font-medium ${itemColor} ${activeColor}`}
-            key={item}
-          >
-            {item}
+          <li key={item.href}>
+            <Link
+              className={`block rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-100 hover:text-blue-950 ${
+                pathname === item.href ? activeColor : itemColor
+              }`}
+              href={item.href}
+            >
+              {item.label}
+            </Link>
           </li>
         ))}
       </ul>
-      <p className={`mt-4 text-xs leading-5 ${noteColor}`}>
-        Pages are introduced in later checkpoints.
-      </p>
     </nav>
   );
 }

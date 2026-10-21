@@ -114,6 +114,15 @@ These paths are documentation only for now. Their routes and links are introduce
 - Implement status filters, cursor-based Load more and selection of current/past operations. Reset accumulated data on organization/filter changes.
 - Test organization isolation in the UI, status/cursor handling, and empty/error states using focused tests.
 
+**Status:** Complete
+
+**Implementation record:**
+
+- `/shelters` loads the authenticated global shelter list and filters it in the browser for the selected organization. This is documented as a development-data limitation and not an authorization boundary.
+- `/operations` uses the dashboard organization-operations endpoint with its supported status filter and opaque cursor. Changing organization or status remounts the scoped list, clears earlier rows and cursors, and ignores late responses.
+- The dashboard now includes a paginated active-operations table. Its Active operations, Planned operations, and Shelters cards link to the applicable implemented views. Active shelters remains an informational card because the overview API supplies only an aggregate count, not individual active-shelter identities.
+- Sidebar links now navigate to all implemented dashboard views. Focused frontend tests cover sidebar/card links, status-filtered cursor pagination, and stale response handling during organization switching.
+
 ### 5. Operation detail and shelter map
 
 - Implement the operation detail page with current affected-region list, active shelter markers, unmapped count and clear empty states.

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type {
   ApiClient,
@@ -80,10 +81,18 @@ export function DashboardOverview({
   const { operationCounts, shelterCount, activeShelterActivationCount } =
     state.data;
   const cards = [
-    ['Active operations', operationCounts.active],
-    ['Planned operations', operationCounts.planned],
-    ['Shelters', shelterCount],
-    ['Active shelters', activeShelterActivationCount],
+    {
+      label: 'Active operations',
+      value: operationCounts.active,
+      href: '/operations?status=ACTIVE',
+    },
+    {
+      label: 'Planned operations',
+      value: operationCounts.planned,
+      href: '/operations?status=PLANNED',
+    },
+    { label: 'Shelters', value: shelterCount, href: '/shelters' },
+    { label: 'Active shelters', value: activeShelterActivationCount },
   ];
   const shelters = getShelterStatus(
     shelterCount,
@@ -93,17 +102,8 @@ export function DashboardOverview({
   return (
     <section aria-label="Organization overview" className="mt-8 space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {cards.map(([label, value], index) => (
-          <article
-            className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-            key={String(label)}
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-600">{label}</p>
-              <OverviewIcon index={index} />
-            </div>
-            <p className="mt-4 text-3xl font-bold text-slate-950">{value}</p>
-          </article>
+        {cards.map((card, index) => (
+          <DashboardCard card={card} index={index} key={card.label} />
         ))}
       </div>
 
@@ -148,6 +148,38 @@ export function DashboardOverview({
       </article>
     </section>
   );
+}
+
+/** Renders an overview card as a link only when its destination is available. */
+function DashboardCard({
+  card,
+  index,
+}: {
+  card: { label: string; value: number; href?: string };
+  index: number;
+}) {
+  const content = (
+    <>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-slate-600">{card.label}</p>
+        <OverviewIcon index={index} />
+      </div>
+      <p className="mt-4 text-3xl font-bold text-slate-950">{card.value}</p>
+    </>
+  );
+
+  if (card.href) {
+    return (
+      <Link
+        className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-400 hover:bg-blue-50"
+        href={card.href}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">{content}</article>;
 }
 
 /** Renders a decorative icon for one overview summary card. */

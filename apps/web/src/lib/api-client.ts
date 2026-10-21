@@ -22,6 +22,49 @@ export type OrganizationDashboardOverview = {
   activeShelterActivationCount: number;
 };
 
+export type Shelter = {
+  id: string;
+  organizationId: string;
+  shelterCode: string;
+  name: string;
+  address: string;
+  countryCode: string;
+  latitude: number | null;
+  longitude: number | null;
+  capacity: number;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export const operationStatuses = [
+  'PLANNED',
+  'ACTIVE',
+  'COMPLETED',
+  'CANCELLED',
+] as const;
+
+export type OperationStatus = (typeof operationStatuses)[number];
+
+export type DashboardOperation = {
+  id: string;
+  operationCode: string;
+  name: string;
+  countryCode: string;
+  type: 'FLOOD' | 'FIRE' | 'EARTHQUAKE' | 'OTHER';
+  severity: 'LOW' | 'MEDIUM' | 'HIGH';
+  status: OperationStatus;
+  startedAt: string | null;
+  endedAt: string | null;
+  updatedAt: string;
+};
+
+export type DashboardOperationsPage = {
+  items: DashboardOperation[];
+  nextCursor: string | null;
+};
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -31,7 +74,7 @@ export class ApiError extends Error {
   }
 }
 
-/** Calls the small subset of the API used by login and organization selection. */
+/** Calls the API routes used by the authenticated dashboard. */
 export function createApiClient(baseUrl: string, onUnauthorized: () => void) {
   const request = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
     let response: Response;
@@ -69,6 +112,41 @@ export function createApiClient(baseUrl: string, onUnauthorized: () => void) {
       request<OrganizationDashboardOverview>(`/dashboard/organizations/${organizationId}/overview`, {
         headers: { Authorization: `Bearer ${accessToken}` }, signal,
       }),
+    /** Loads all shelters before the small dashboard filters them by organization. */
+    getShelters: (accessToken: string, signal?: AbortSignal) =>
+      request<Shelter[]>('/shelters', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal,
+      }),
+    /** Loads one cursor-paginated operation page for a selected organization. */
+    getOrganizationOperations: (
+      accessToken: string,
+      organizationId: string,
+      query: { limit?: number; cursor?: string; status?: OperationStatus },
+      signal?: AbortSignal,
+    ) => {
+      const search = new URLSearchParams();
+
+      if (query.limit) {
+        search.set('limit', String(query.limit));
+      }
+      if (query.cursor) {
+        search.set('cursor', query.cursor);
+      }
+      if (query.status) {
+        search.set('status', query.status);
+      }
+
+      const suffix = search.size > 0 ? `?${search.toString()}` : '';
+
+      return request<DashboardOperationsPage>(
+        `/dashboard/organizations/${organizationId}/operations${suffix}`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          signal,
+        },
+      );
+    },
   };
 }
 

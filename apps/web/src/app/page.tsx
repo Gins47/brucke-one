@@ -4,9 +4,10 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardShell } from '@/components/dashboard-shell';
 import { DashboardOverview } from '@/components/dashboard-overview';
+import { OperationsTable } from '@/components/operations-table';
 import { useSession } from '@/components/session-provider';
 
-/** Renders the shared dashboard frame until data-backed pages are implemented. */
+/** Renders the selected organization's overview and current active operations. */
 export default function Home() {
   const router = useRouter();
   const session = useSession();
@@ -47,6 +48,17 @@ export default function Home() {
         </h1>
         <p className="mt-4 text-base leading-7 text-slate-600">{session.selectedOrganization.name} is selected.</p>
         <DashboardOverview key={session.selectedOrganization.id} accessToken={session.accessToken} api={session.api} organization={session.selectedOrganization} />
+        <OperationsTable
+          accessToken={session.accessToken}
+          api={session.api}
+          emptyMessage="No active operations are available."
+          key={`${session.selectedOrganization.id}-ACTIVE`}
+          organization={session.selectedOrganization}
+          pageSize={5}
+          status="ACTIVE"
+          title="Ongoing operations"
+          viewAllHref="/operations?status=ACTIVE"
+        />
       </section>
     </DashboardShell>
   );
