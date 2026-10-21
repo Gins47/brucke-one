@@ -128,9 +128,10 @@ export function createApiClient(baseUrl: string, onUnauthorized: () => void) {
         body: JSON.stringify({ username, password }),
       }),
     /** Loads organizations for the currently authenticated administrator. */
-    getOrganizations: (accessToken: string) =>
+    getOrganizations: (accessToken: string, signal?: AbortSignal) =>
       request<Organization[]>('/organizations', {
         headers: { Authorization: `Bearer ${accessToken}` },
+        signal,
       }),
     /** Loads the dashboard overview for one selected organization. */
     getOrganizationOverview: (accessToken: string, organizationId: string, signal?: AbortSignal) =>

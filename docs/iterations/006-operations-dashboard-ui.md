@@ -1,6 +1,6 @@
 # Iteration 006 — Operations Dashboard UI
 
-**Status:** In progress  
+**Status:** Complete
 **Prerequisites:** Iterations 001–005 completed; the Nest API and development admin login work locally.
 
 ## Goal
@@ -138,7 +138,7 @@ These paths are documentation only for now. Their routes and links are introduce
 - Leaflet and React Leaflet render active shelters with complete coordinates as selectable markers. The map uses OpenStreetMap standard tiles with the required visible attribution and links to the OpenStreetMap copyright page. A weather panel states that weather integration is deferred.
 - The detail page has Shelters, Operations teams, People seeking help, Support units, and Approvals tabs. Only Shelters has current API data. It contains the single full shelter-detail table, total capacity only when every active shelter is represented by the API response, and an explicit `Not tracked yet` occupancy state. Other tabs state `Not available yet`.
 - The dashboard includes a noninteractive Pending approvals card labelled `Not available yet`; no approval count or destination is claimed before approval data exists.
-- Empty, error, not-found, unmapped-location, and late-response states are handled without inventing map geometry or shelter locations. Focused tests cover populated and empty projections, stale organization responses, operation-list navigation, and marker data handoff.
+- Empty, error, not-found, unmapped-location, module-failure, repeated-tile-failure, organization-mismatch, and late-response states are handled without inventing map geometry or shelter locations. Focused tests cover populated and empty projections, stale organization responses, organization mismatch, operation-list navigation, marker data handoff, and map fallbacks.
 
 ### 6. Final verification and documentation
 
@@ -146,6 +146,20 @@ These paths are documentation only for now. Their routes and links are introduce
 - Manually verify the full local flow: login, organization selection/switching, dashboard, shelters, operations filtering/pagination, operation map, logout and reload.
 - Document setup, API URL/CORS, tile source/attribution, authentication limitations, unpaginated list limitations and intentionally deferred work.
 - Mark the iteration complete only after checks and review findings are resolved.
+
+**Status:** Complete
+
+**Verification and acceptance record:**
+
+- The organization-list request is cancelled and invalidated on logout, session expiration, and a later login. A focused provider test proves an old response cannot repopulate a new session.
+- Leaflet remains browser-only. A failed module load shows a map-unavailable fallback. The map also falls back after three tile failures, avoiding a fallback for one transient tile error. Live tile availability was not manually verified.
+- Operation-detail tests cover organization mismatch, keyboard tab navigation, and the existing populated, empty, stale-response, and fallback states.
+- `apps/web/README.md` now documents local setup, CORS/API configuration, implemented routes, OpenStreetMap tile usage, development authentication, browser-only client filtering, and deferred work.
+- Frontend verification completed with `npm run test`, `npm run lint`, `npm run build`, and `git diff --check`. No API code changed in this checkpoint, so no additional API verification was required. Browser desktop/mobile and live-map checks remain unverified in this environment.
+
+**Final acceptance summary:**
+
+Iteration 006 provides the development-admin dashboard flow: login, organization selection and switching, dashboard overview, shelters, cursor-paginated operations, and operation detail with active shelter markers, current affected regions, and unmapped counts. It preserves in-memory-only session behavior and explicitly identifies organization selection and browser-side shelter filtering as UI behavior rather than authorization. No database, API, or migration changes were introduced. Production authentication, organization-level isolation, scalable shelter queries, map geometry, caching, weather, occupancy, approvals, frontend write actions, and AI features remain deferred.
 
 ## Out of scope
 

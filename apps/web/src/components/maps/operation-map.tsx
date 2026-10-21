@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   CircleMarker,
   MapContainer,
@@ -11,10 +11,27 @@ import {
 import type { DashboardOperationMap } from '@/lib/api-client';
 
 type MappedShelter = DashboardOperationMap['activeShelters'][number];
+const tileFailureThreshold = 3;
 
 /** Renders active shelters with coordinates on an OpenStreetMap base layer. */
-export function OperationMap({ shelters }: { shelters: MappedShelter[] }) {
+export function OperationMap({
+  shelters,
+  onUnavailable,
+}: {
+  shelters: MappedShelter[];
+  onUnavailable: () => void;
+}) {
   const firstShelter = shelters[0];
+  const tileFailures = useRef(0);
+
+  /** Reports a map outage only after several tiles fail, avoiding a fallback for one transient tile error. */
+  const reportTileFailure = () => {
+    tileFailures.current += 1;
+
+    if (tileFailures.current === tileFailureThreshold) {
+      onUnavailable();
+    }
+  };
 
   return (
     <MapContainer
@@ -26,6 +43,7 @@ export function OperationMap({ shelters }: { shelters: MappedShelter[] }) {
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        eventHandlers={{ tileerror: reportTileFailure }}
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <MapBounds shelters={shelters} />

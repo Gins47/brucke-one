@@ -31,10 +31,42 @@ and organization selection is a UI filter, not an authorization boundary.
 Run verification with:
 
 ```bash
+npm run test
 npm run lint
 npm run build
 ```
 
-The current checkpoint supports login, organization selection, switching, and
-client-side logout. Dashboard data, shelter lists, operation lists, maps, and
-create/edit controls remain for later checkpoints.
+## Available pages
+
+- `/login` — development administrator login.
+- `/organizations` — choose and locally search the loaded organization list.
+- `/` — the selected organization dashboard, including overview counts and
+  active operations.
+- `/shelters` — shelters for the selected organization. The API currently
+  returns a global unpaginated list, so this development UI filters it in the
+  browser. This is not an authorization boundary.
+- `/operations` — selected-organization operations with status filters and
+  cursor-based Load more pagination.
+- `/operations/[operationId]` — operation details, current affected regions,
+  active shelter locations, and the unmapped active-shelter count.
+
+The operation map uses OpenStreetMap standard tiles with visible attribution
+and requires network access to the tile service. A failed Leaflet load shows a
+map-unavailable message. The map also switches to that message after repeated
+tile failures, rather than reacting to one transient tile error. Shelter
+details remain available in the Shelters tab. See the [OpenStreetMap tile
+usage policy](https://operations.osmfoundation.org/policies/tiles/) before
+using this local setup at larger scale.
+
+## Current limitations
+
+This is a development demonstration. Authentication uses the local,
+application-wide ADMIN role; it is not organization-level isolation. Tokens
+and selected organizations are held only in memory, and logout does not revoke
+an already issued token.
+
+The UI does not implement write actions, persistent sessions, refresh tokens,
+region boundaries, historical map reconstruction, map clustering or viewport
+search. Weather, occupancy, operations teams, people seeking help, support
+units, and approvals are intentionally shown as unavailable until their API
+data and workflows exist.

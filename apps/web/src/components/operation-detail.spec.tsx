@@ -117,6 +117,54 @@ describe('OperationDetail', () => {
     expect(screen.getByText('Not tracked yet')).toBeTruthy();
   });
 
+  it('does not display an operation from another selected organization', async () => {
+    const api = {
+      getEmergencyOperationMap: vi.fn().mockResolvedValue(mapResponse('organization-b')),
+    } as unknown as ApiClient;
+
+    render(
+      <OperationDetail
+        accessToken="token"
+        api={api}
+        operationId="operation-1"
+        organizationId="organization-a"
+      />,
+    );
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Operation not in selected organization',
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('heading', { name: 'Bavaria flood response' }),
+    ).toBeNull();
+  });
+
+  it('moves tab focus and selection with arrow keys', async () => {
+    const api = {
+      getEmergencyOperationMap: vi.fn().mockResolvedValue(mapResponse('organization-a')),
+    } as unknown as ApiClient;
+
+    render(
+      <OperationDetail
+        accessToken="token"
+        api={api}
+        operationId="operation-1"
+        organizationId="organization-a"
+      />,
+    );
+
+    const sheltersTab = await screen.findByRole('tab', { name: 'Shelters' });
+    sheltersTab.focus();
+    fireEvent.keyDown(sheltersTab, { key: 'ArrowRight' });
+
+    const teamsTab = screen.getByRole('tab', { name: 'Operations teams' });
+    expect(teamsTab.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(teamsTab);
+    expect(screen.getByText('Not available yet.')).toBeTruthy();
+  });
+
   it('does not replace the selected organization detail with a late response', async () => {
     const first = deferred<DashboardOperationMap>();
     const second = deferred<DashboardOperationMap>();

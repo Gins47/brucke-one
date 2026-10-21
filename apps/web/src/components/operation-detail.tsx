@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type KeyboardEvent } from 'react';
 import { OperationMapPanel } from './maps/operation-map-panel';
 import {
   ApiError,
@@ -41,6 +41,33 @@ export function OperationDetail({
     data: null,
   });
   const [activeTab, setActiveTab] = useState<DetailTab>('shelters');
+
+  /** Selects and focuses a neighboring tab for the standard arrow-key tab interaction. */
+  const selectAdjacentTab = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    tabId: DetailTab,
+  ) => {
+    const index = detailTabs.findIndex((tab) => tab.id === tabId);
+    const targetIndex =
+      event.key === 'ArrowRight' || event.key === 'ArrowDown'
+        ? (index + 1) % detailTabs.length
+        : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+          ? (index - 1 + detailTabs.length) % detailTabs.length
+          : event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? detailTabs.length - 1
+              : null;
+
+    if (targetIndex === null) {
+      return;
+    }
+
+    event.preventDefault();
+    const target = detailTabs[targetIndex];
+    setActiveTab(target.id);
+    document.getElementById(`${target.id}-tab`)?.focus();
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -166,8 +193,10 @@ export function OperationDetail({
               }`}
               id={`${tab.id}-tab`}
               key={tab.id}
+              onKeyDown={(event) => selectAdjacentTab(event, tab.id)}
               onClick={() => setActiveTab(tab.id)}
               role="tab"
+              tabIndex={activeTab === tab.id ? 0 : -1}
               type="button"
             >
               {tab.label}
