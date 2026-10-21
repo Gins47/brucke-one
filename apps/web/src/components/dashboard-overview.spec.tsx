@@ -37,6 +37,9 @@ describe('DashboardOverview', () => {
     expect(screen.getByRole('link', { name: /shelters/i }).getAttribute('href')).toBe(
       '/shelters',
     );
+    expect(screen.getByText('Pending approvals')).toBeTruthy();
+    expect(screen.getByText('Not available yet')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /pending approvals/i })).toBeNull();
   });
 
   it('renders the error state when the overview request fails', async () => {

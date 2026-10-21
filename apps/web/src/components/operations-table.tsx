@@ -158,7 +158,14 @@ export function OperationsTable({
                 {state.items.map((operation) => (
                   <tr key={operation.id}>
                     <td className="whitespace-nowrap px-4 py-3 font-medium">{operation.operationCode}</td>
-                    <td className="px-4 py-3">{operation.name}</td>
+                    <td className="px-4 py-3">
+                      <Link
+                        className="font-semibold text-blue-700 hover:text-blue-900"
+                        href={`/operations/${operation.id}`}
+                      >
+                        {operation.name}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3">{operation.countryCode}</td>
                     <td className="px-4 py-3">{operation.type}</td>
                     <td className="px-4 py-3">{operation.severity}</td>

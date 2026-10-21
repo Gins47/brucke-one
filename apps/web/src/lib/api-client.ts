@@ -65,6 +65,31 @@ export type DashboardOperationsPage = {
   nextCursor: string | null;
 };
 
+export type DashboardOperationMap = {
+  operation: DashboardOperation & { organizationId: string };
+  affectedRegions: Array<{
+    id: string;
+    countryCode: string;
+    regionCode: string;
+    regionName: string;
+    addedAt: string;
+  }>;
+  activeShelters: Array<{
+    shelterId: string;
+    shelterCode: string;
+    name: string;
+    address: string;
+    countryCode: string;
+    latitude: number;
+    longitude: number;
+    capacity: number;
+    contactEmail: string | null;
+    contactPhone: string | null;
+    activatedAt: string;
+  }>;
+  unmappedActiveShelterCount: number;
+};
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -147,6 +172,19 @@ export function createApiClient(baseUrl: string, onUnauthorized: () => void) {
         },
       );
     },
+    /** Loads the read-only map projection for one emergency operation. */
+    getEmergencyOperationMap: (
+      accessToken: string,
+      operationId: string,
+      signal?: AbortSignal,
+    ) =>
+      request<DashboardOperationMap>(
+        `/dashboard/emergency-operations/${operationId}/map`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          signal,
+        },
+      ),
   };
 }
 

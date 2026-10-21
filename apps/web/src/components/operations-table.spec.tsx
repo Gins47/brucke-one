@@ -74,6 +74,9 @@ describe('OperationsTable', () => {
     );
 
     expect(await screen.findByText('First operation')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'First operation' }).getAttribute('href')).toBe(
+      '/operations/first',
+    );
     expect(api.getOrganizationOperations).toHaveBeenCalledWith(
       'token',
       'org-a',

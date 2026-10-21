@@ -129,6 +129,17 @@ These paths are documentation only for now. Their routes and links are introduce
 - Configure an approved tile source and attribution. Keep Leaflet code browser-only.
 - Test mapping of API data, exclusion of coordinate-free markers, selection mismatch and map/data unavailable states. No geospatial analysis or region geometry is introduced.
 
+**Status:** Complete
+
+**Implementation record:**
+
+- Operations in the dashboard and operations list link to `/operations/[operationId]`. The detail page uses `GET /dashboard/emergency-operations/:operationId/map` and displays only its operation summary, current affected regions, mapped active shelters, and unmapped active-shelter count.
+- The page checks the returned operation organization ID against the selected organization before displaying details. This prevents a stale or mismatched selected-organization view; it is not an authorization boundary.
+- Leaflet and React Leaflet render active shelters with complete coordinates as selectable markers. The map uses OpenStreetMap standard tiles with the required visible attribution and links to the OpenStreetMap copyright page. A weather panel states that weather integration is deferred.
+- The detail page has Shelters, Operations teams, People seeking help, Support units, and Approvals tabs. Only Shelters has current API data. It contains the single full shelter-detail table, total capacity only when every active shelter is represented by the API response, and an explicit `Not tracked yet` occupancy state. Other tabs state `Not available yet`.
+- The dashboard includes a noninteractive Pending approvals card labelled `Not available yet`; no approval count or destination is claimed before approval data exists.
+- Empty, error, not-found, unmapped-location, and late-response states are handled without inventing map geometry or shelter locations. Focused tests cover populated and empty projections, stale organization responses, operation-list navigation, and marker data handoff.
+
 ### 6. Final verification and documentation
 
 - Run the frontend's focused tests, lint, build and any existing required checks. Run relevant API checks if local API configuration changed.

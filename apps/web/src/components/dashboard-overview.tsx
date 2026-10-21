@@ -93,6 +93,7 @@ export function DashboardOverview({
     },
     { label: 'Shelters', value: shelterCount, href: '/shelters' },
     { label: 'Active shelters', value: activeShelterActivationCount },
+    { label: 'Pending approvals', message: 'Not available yet' },
   ];
   const shelters = getShelterStatus(
     shelterCount,
@@ -101,7 +102,7 @@ export function DashboardOverview({
 
   return (
     <section aria-label="Organization overview" className="mt-8 space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {cards.map((card, index) => (
           <DashboardCard card={card} index={index} key={card.label} />
         ))}
@@ -155,7 +156,7 @@ function DashboardCard({
   card,
   index,
 }: {
-  card: { label: string; value: number; href?: string };
+  card: { label: string; value?: number; message?: string; href?: string };
   index: number;
 }) {
   const content = (
@@ -164,7 +165,11 @@ function DashboardCard({
         <p className="text-sm font-medium text-slate-600">{card.label}</p>
         <OverviewIcon index={index} />
       </div>
-      <p className="mt-4 text-3xl font-bold text-slate-950">{card.value}</p>
+      {card.value === undefined ? (
+        <p className="mt-4 text-sm font-semibold text-slate-600">{card.message}</p>
+      ) : (
+        <p className="mt-4 text-3xl font-bold text-slate-950">{card.value}</p>
+      )}
     </>
   );
 
