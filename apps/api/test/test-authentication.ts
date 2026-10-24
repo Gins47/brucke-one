@@ -14,6 +14,7 @@ type LoginResponse = {
 type AuthenticatedRequestFactory = {
   get(path: string): Test;
   post(path: string): Test;
+  put(path: string): Test;
   patch(path: string): Test;
 };
 
@@ -64,6 +65,7 @@ export function authenticatedRequest(
   return {
     get: (path) => withToken(request(app.getHttpServer()).get(path)),
     post: (path) => withToken(request(app.getHttpServer()).post(path)),
+    put: (path) => withToken(request(app.getHttpServer()).put(path)),
     patch: (path) => withToken(request(app.getHttpServer()).patch(path)),
   };
 }

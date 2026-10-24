@@ -8,6 +8,7 @@ import { EmergencyOperationsModule } from './emergency-operations/emergency-oper
 import { OrganizationsModule } from './organizations/organizations.module';
 import { OperationAffectedRegionsModule } from './operation-affected-regions/operation-affected-regions.module';
 import { SheltersModule } from './shelters/shelters.module';
+import { ShelterActivationAvailabilityModule } from './shelter-activation-availability/shelter-activation-availability.module';
 import { ShelterActivationsModule } from './shelter-activations/shelter-activations.module';
 
 @Module({
@@ -20,6 +21,7 @@ import { ShelterActivationsModule } from './shelter-activations/shelter-activati
     EmergencyOperationsModule,
     SheltersModule,
     ShelterActivationsModule,
+    ShelterActivationAvailabilityModule,
   ],
   controllers: [AppController],
   providers: [AppService],

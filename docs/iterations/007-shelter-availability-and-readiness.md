@@ -149,6 +149,28 @@ Existing loading, error, authentication-expiry, selected-organization, responsiv
 
 **Acceptance:** The API reports truthful availability, does not over-allocate under concurrent writes, and returns established error contracts.
 
+**Status:** Complete
+
+**Implementation record:**
+
+- `GET /shelter-activations/:activationId/availability` returns either the
+  reported snapshot with a derived `availablePlaces` value or
+  `{ shelterActivationId, availability: null }` for an existing activation
+  that has not reported availability. Historical reports remain readable.
+- `PUT /shelter-activations/:activationId/availability` replaces the complete
+  report for active parents. It validates a complete non-negative snapshot,
+  enforces the physical shelter-capacity limit, sets report/audit timestamps
+  server-side, and never stores `availablePlaces`.
+- The write transaction locks the activation, its emergency operation, its
+  shelter, and an existing availability row in that order. This serializes the
+  report with activation deactivation and operation terminal-state updates;
+  a parent transition that wins first is observed as a `409` conflict.
+- Focused service and isolated PostgreSQL HTTP tests cover creation,
+  replacement, not-reported history, strict validation, capacity conflicts,
+  inactive/terminal parents, derived values, and concurrent-state conflict
+  handling. The isolated test database is migrated and removed by its normal
+  lifecycle.
+
 ### 3. Operation dashboard read model
 
 - Extend the existing operation map/read DTO with `shelterActivationId`, per-shelter availability, and explicit coverage metadata.
