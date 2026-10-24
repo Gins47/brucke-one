@@ -179,6 +179,27 @@ Existing loading, error, authentication-expiry, selected-organization, responsiv
 
 **Acceptance:** Clients can render each active shelter's availability and know when aggregate data is incomplete.
 
+**Status:** Complete
+
+**Implementation record:**
+
+- The existing operation-map endpoint now returns `activeShelterAvailability`
+  for every active activation. Each row includes the activation ID, shelter
+  projection, nullable coordinates, and either a reported availability object
+  or `null` when no report exists.
+- `activeShelters` remains the existing mapped-only list for map consumers and
+  now includes the matching activation ID and availability. Explicit
+  `mappedActiveShelterCount` and `unmappedActiveShelterCount` retain map
+  coverage independently from availability coverage.
+- `availabilitySummary` is derived from the same all-active shelter rows.
+  Its capacity totals are therefore explicitly reported-only totals, and its
+  reported/not-reported counts describe coverage without treating a missing
+  report as zero values.
+- The shelter read query uses one left join to availability and stable
+  `shelter_code`, then shelter ID ordering. Focused isolated PostgreSQL tests
+  cover reported and unreported data, map/availability coverage independence,
+  deactivated-activation exclusion, and ordering.
+
 ### 4. Shelter and dashboard UI
 
 - Implement the availability display and report/update flow only in the approved active-shelter context.

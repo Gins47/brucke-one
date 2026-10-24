@@ -1,20 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import {
-  and,
-  asc,
-  count,
-  desc,
-  eq,
-  isNotNull,
-  isNull,
-  lt,
-  or,
-} from 'drizzle-orm';
+import { and, asc, count, desc, eq, isNull, lt, or } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import {
   emergencyOperations,
   operationAffectedRegions,
   organizations,
+  shelterActivationAvailability,
   shelterActivations,
   shelters,
 } from '../database/schema';
@@ -241,87 +232,165 @@ export class DashboardService {
     };
   }
 
-  /** Returns current regions and active shelter locations for one operation map. */
+  /** Returns current regions and availability for every active shelter in one operation. */
   async getEmergencyOperationMap(
     operationId: string,
   ): Promise<DashboardOperationMapResponse> {
     const operation = await this.findOperationForMap(operationId);
-    const [affectedRegions, activeShelterRows, unmappedCountResult] =
-      await Promise.all([
-        this.database.db
-          .select({
-            id: operationAffectedRegions.id,
-            countryCode: operationAffectedRegions.countryCode,
-            regionCode: operationAffectedRegions.regionCode,
-            regionName: operationAffectedRegions.regionName,
-            addedAt: operationAffectedRegions.addedAt,
-          })
-          .from(operationAffectedRegions)
-          .where(
-            and(
-              eq(operationAffectedRegions.emergencyOperationId, operationId),
-              isNull(operationAffectedRegions.removedAt),
-            ),
-          )
-          .orderBy(
-            asc(operationAffectedRegions.countryCode),
-            asc(operationAffectedRegions.regionCode),
-            asc(operationAffectedRegions.id),
+    const [affectedRegions, activeShelterRows] = await Promise.all([
+      this.database.db
+        .select({
+          id: operationAffectedRegions.id,
+          countryCode: operationAffectedRegions.countryCode,
+          regionCode: operationAffectedRegions.regionCode,
+          regionName: operationAffectedRegions.regionName,
+          addedAt: operationAffectedRegions.addedAt,
+        })
+        .from(operationAffectedRegions)
+        .where(
+          and(
+            eq(operationAffectedRegions.emergencyOperationId, operationId),
+            isNull(operationAffectedRegions.removedAt),
           ),
-        this.database.db
-          .select({
-            shelterId: shelters.id,
-            shelterCode: shelters.shelterCode,
-            name: shelters.name,
-            address: shelters.address,
-            countryCode: shelters.countryCode,
-            latitude: shelters.latitude,
-            longitude: shelters.longitude,
-            capacity: shelters.capacity,
-            contactEmail: shelters.contactEmail,
-            contactPhone: shelters.contactPhone,
-            activatedAt: shelterActivations.activatedAt,
-          })
-          .from(shelterActivations)
-          .innerJoin(shelters, eq(shelterActivations.shelterId, shelters.id))
-          .where(
-            and(
-              eq(shelterActivations.emergencyOperationId, operationId),
-              eq(shelterActivations.status, 'ACTIVE'),
-              isNotNull(shelters.latitude),
-              isNotNull(shelters.longitude),
-            ),
+        )
+        .orderBy(
+          asc(operationAffectedRegions.countryCode),
+          asc(operationAffectedRegions.regionCode),
+          asc(operationAffectedRegions.id),
+        ),
+      this.database.db
+        .select({
+          shelterId: shelters.id,
+          shelterCode: shelters.shelterCode,
+          name: shelters.name,
+          address: shelters.address,
+          countryCode: shelters.countryCode,
+          latitude: shelters.latitude,
+          longitude: shelters.longitude,
+          capacity: shelters.capacity,
+          contactEmail: shelters.contactEmail,
+          contactPhone: shelters.contactPhone,
+          activatedAt: shelterActivations.activatedAt,
+          shelterActivationId: shelterActivations.id,
+          operationalCapacity:
+            shelterActivationAvailability.operationalCapacity,
+          currentOccupancy: shelterActivationAvailability.currentOccupancy,
+          reservedPlaces: shelterActivationAvailability.reservedPlaces,
+          acceptingArrivals: shelterActivationAvailability.acceptingArrivals,
+          availabilityNote: shelterActivationAvailability.availabilityNote,
+          reportedAt: shelterActivationAvailability.reportedAt,
+        })
+        .from(shelterActivations)
+        .innerJoin(shelters, eq(shelterActivations.shelterId, shelters.id))
+        .leftJoin(
+          shelterActivationAvailability,
+          eq(
+            shelterActivationAvailability.shelterActivationId,
+            shelterActivations.id,
           ),
-        this.database.db
-          .select({ count: count(shelterActivations.id) })
-          .from(shelterActivations)
-          .innerJoin(shelters, eq(shelterActivations.shelterId, shelters.id))
-          .where(
-            and(
-              eq(shelterActivations.emergencyOperationId, operationId),
-              eq(shelterActivations.status, 'ACTIVE'),
-              or(isNull(shelters.latitude), isNull(shelters.longitude)),
-            ),
+        )
+        .where(
+          and(
+            eq(shelterActivations.emergencyOperationId, operationId),
+            eq(shelterActivations.status, 'ACTIVE'),
           ),
-      ]);
+        )
+        .orderBy(asc(shelters.shelterCode), asc(shelters.id)),
+    ]);
+    const activeShelterAvailability: DashboardOperationMapResponse['activeShelterAvailability'] =
+      activeShelterRows.map((shelter) => {
+        const shelterProjection = {
+          shelterActivationId: shelter.shelterActivationId,
+          shelterId: shelter.shelterId,
+          shelterCode: shelter.shelterCode,
+          name: shelter.name,
+          address: shelter.address,
+          countryCode: shelter.countryCode,
+          latitude: shelter.latitude,
+          longitude: shelter.longitude,
+          capacity: shelter.capacity,
+          contactEmail: shelter.contactEmail,
+          contactPhone: shelter.contactPhone,
+          activatedAt: shelter.activatedAt,
+        };
+
+        if (shelter.operationalCapacity === null) {
+          return { ...shelterProjection, availability: null };
+        }
+
+        const operationalCapacity = shelter.operationalCapacity;
+
+        return {
+          ...shelterProjection,
+          availability: {
+            operationalCapacity,
+            currentOccupancy: shelter.currentOccupancy!,
+            reservedPlaces: shelter.reservedPlaces!,
+            availablePlaces:
+              operationalCapacity -
+              shelter.currentOccupancy! -
+              shelter.reservedPlaces!,
+            acceptingArrivals: shelter.acceptingArrivals!,
+            availabilityNote: shelter.availabilityNote,
+            reportedAt: shelter.reportedAt!,
+          },
+        };
+      });
+    let availabilityReportedShelterCount = 0;
+    let reportedOperationalCapacity = 0;
+    let reportedCurrentOccupancy = 0;
+    let reportedReservedPlaces = 0;
+    let reportedAvailablePlaces = 0;
+    let acceptingArrivalsShelterCount = 0;
+
+    for (const shelter of activeShelterAvailability) {
+      if (!shelter.availability) {
+        continue;
+      }
+
+      availabilityReportedShelterCount += 1;
+      reportedOperationalCapacity += shelter.availability.operationalCapacity;
+      reportedCurrentOccupancy += shelter.availability.currentOccupancy;
+      reportedReservedPlaces += shelter.availability.reservedPlaces;
+      reportedAvailablePlaces += shelter.availability.availablePlaces;
+      acceptingArrivalsShelterCount += shelter.availability.acceptingArrivals
+        ? 1
+        : 0;
+    }
+    const activeShelters = activeShelterAvailability.flatMap((shelter) => {
+      if (shelter.latitude === null || shelter.longitude === null) {
+        return [];
+      }
+
+      return [
+        {
+          ...shelter,
+          latitude: shelter.latitude,
+          longitude: shelter.longitude,
+        },
+      ];
+    });
+    const availabilitySummary = {
+      activeShelterCount: activeShelterAvailability.length,
+      availabilityReportedShelterCount,
+      availabilityNotReportedShelterCount:
+        activeShelterAvailability.length - availabilityReportedShelterCount,
+      reportedOperationalCapacity,
+      reportedCurrentOccupancy,
+      reportedReservedPlaces,
+      reportedAvailablePlaces,
+      acceptingArrivalsShelterCount,
+    };
 
     return {
       operation: toMapOperation(operation),
       affectedRegions,
-      activeShelters: activeShelterRows.flatMap((shelter) => {
-        if (shelter.latitude === null || shelter.longitude === null) {
-          return [];
-        }
-
-        return [
-          {
-            ...shelter,
-            latitude: shelter.latitude,
-            longitude: shelter.longitude,
-          },
-        ];
-      }),
-      unmappedActiveShelterCount: unmappedCountResult[0]?.count ?? 0,
+      activeShelters,
+      activeShelterAvailability,
+      mappedActiveShelterCount: activeShelters.length,
+      unmappedActiveShelterCount:
+        activeShelterAvailability.length - activeShelters.length,
+      availabilitySummary,
     };
   }
 

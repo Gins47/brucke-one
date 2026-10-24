@@ -117,6 +117,30 @@ export type DashboardOperationsListResponse = {
   nextCursor: string | null;
 };
 
+export type DashboardOperationAvailabilityShelter = {
+  shelterActivationId: string;
+  shelterId: string;
+  shelterCode: string;
+  name: string;
+  address: string;
+  countryCode: string;
+  latitude: number | null;
+  longitude: number | null;
+  capacity: number;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  activatedAt: Date;
+  availability: {
+    operationalCapacity: number;
+    currentOccupancy: number;
+    reservedPlaces: number;
+    availablePlaces: number;
+    acceptingArrivals: boolean;
+    availabilityNote: string | null;
+    reportedAt: Date;
+  } | null;
+};
+
 export type DashboardOperationMapResponse = {
   operation: {
     id: string;
@@ -138,18 +162,23 @@ export type DashboardOperationMapResponse = {
     regionName: string;
     addedAt: Date;
   }>;
-  activeShelters: Array<{
-    shelterId: string;
-    shelterCode: string;
-    name: string;
-    address: string;
-    countryCode: string;
-    latitude: number;
-    longitude: number;
-    capacity: number;
-    contactEmail: string | null;
-    contactPhone: string | null;
-    activatedAt: Date;
-  }>;
+  activeShelters: Array<
+    DashboardOperationAvailabilityShelter & {
+      latitude: number;
+      longitude: number;
+    }
+  >;
+  activeShelterAvailability: DashboardOperationAvailabilityShelter[];
+  mappedActiveShelterCount: number;
   unmappedActiveShelterCount: number;
+  availabilitySummary: {
+    activeShelterCount: number;
+    availabilityReportedShelterCount: number;
+    availabilityNotReportedShelterCount: number;
+    reportedOperationalCapacity: number;
+    reportedCurrentOccupancy: number;
+    reportedReservedPlaces: number;
+    reportedAvailablePlaces: number;
+    acceptingArrivalsShelterCount: number;
+  };
 };

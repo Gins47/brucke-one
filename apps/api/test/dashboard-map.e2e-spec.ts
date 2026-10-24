@@ -37,6 +37,7 @@ type DashboardMapResponse = {
     addedAt: string;
   }>;
   activeShelters: Array<{
+    shelterActivationId: string;
     shelterId: string;
     shelterCode: string;
     name: string;
@@ -48,8 +49,44 @@ type DashboardMapResponse = {
     contactEmail: string | null;
     contactPhone: string | null;
     activatedAt: string;
+    availability: {
+      operationalCapacity: number;
+      currentOccupancy: number;
+      reservedPlaces: number;
+      availablePlaces: number;
+      acceptingArrivals: boolean;
+      availabilityNote: string | null;
+      reportedAt: string;
+    } | null;
   }>;
+  activeShelterAvailability: Array<{
+    shelterActivationId: string;
+    shelterId: string;
+    shelterCode: string;
+    latitude: number | null;
+    longitude: number | null;
+    availability: {
+      operationalCapacity: number;
+      currentOccupancy: number;
+      reservedPlaces: number;
+      availablePlaces: number;
+      acceptingArrivals: boolean;
+      availabilityNote: string | null;
+      reportedAt: string;
+    } | null;
+  }>;
+  mappedActiveShelterCount: number;
   unmappedActiveShelterCount: number;
+  availabilitySummary: {
+    activeShelterCount: number;
+    availabilityReportedShelterCount: number;
+    availabilityNotReportedShelterCount: number;
+    reportedOperationalCapacity: number;
+    reportedCurrentOccupancy: number;
+    reportedReservedPlaces: number;
+    reportedAvailablePlaces: number;
+    acceptingArrivalsShelterCount: number;
+  };
 };
 
 /** Creates an organization through the API for a dashboard map test. */
@@ -92,12 +129,13 @@ async function createShelter(
   app: INestApplication<App>,
   organizationId: string,
   mapped: boolean,
+  shelterCode = `SH-${randomUUID()}`,
 ): Promise<ShelterResponse> {
   const response = await authenticatedRequest(app, accessToken)
     .post('/shelters')
     .send({
       organizationId,
-      shelterCode: `SH-${randomUUID()}`,
+      shelterCode,
       name: mapped ? 'Mapped Community Hall' : 'Unmapped Community Hall',
       address: 'Example Street 10, 80331 Munich',
       countryCode: 'DE',
@@ -107,6 +145,23 @@ async function createShelter(
     .expect(201);
 
   return response.body as ShelterResponse;
+}
+
+/** Records one availability snapshot through the public availability API. */
+async function reportAvailability(
+  app: INestApplication<App>,
+  activationId: string,
+  input: {
+    operationalCapacity: number;
+    currentOccupancy: number;
+    reservedPlaces: number;
+    acceptingArrivals: boolean;
+  },
+): Promise<void> {
+  await authenticatedRequest(app, accessToken)
+    .put(`/shelter-activations/${activationId}/availability`)
+    .send(input)
+    .expect(200);
 }
 
 /** Creates an affected region through the public API. */
@@ -268,11 +323,12 @@ describe('Dashboard emergency operation map API (e2e)', () => {
   it('returns active shelters with complete coordinates', async () => {
     const { organization, operation } = await createActiveOperation(app);
     const shelter = await createShelter(app, organization.id, true);
-    await createActivation(app, shelter.id, operation.id);
+    const activation = await createActivation(app, shelter.id, operation.id);
     const map = await getMap(app, operation.id);
 
     expect(map.activeShelters).toEqual([
       expect.objectContaining({
+        shelterActivationId: activation.id,
         shelterId: shelter.id,
         name: 'Mapped Community Hall',
         address: 'Example Street 10, 80331 Munich',
@@ -282,7 +338,11 @@ describe('Dashboard emergency operation map API (e2e)', () => {
         capacity: 250,
         contactEmail: null,
         contactPhone: null,
+        availability: null,
       }),
+    ]);
+    expect(map.activeShelterAvailability).toEqual([
+      expect.objectContaining({ shelterActivationId: activation.id }),
     ]);
     expect(typeof map.activeShelters[0]?.activatedAt).toBe('string');
   });
@@ -295,7 +355,9 @@ describe('Dashboard emergency operation map API (e2e)', () => {
       .post(`/shelter-activations/${activation.id}/deactivate`)
       .expect(201);
 
-    expect((await getMap(app, operation.id)).activeShelters).toEqual([]);
+    const map = await getMap(app, operation.id);
+    expect(map.activeShelters).toEqual([]);
+    expect(map.availabilitySummary.activeShelterCount).toBe(0);
   });
 
   it('excludes active shelters without coordinates and counts them as unmapped', async () => {
@@ -306,6 +368,15 @@ describe('Dashboard emergency operation map API (e2e)', () => {
     const map = await getMap(app, operation.id);
 
     expect(map.activeShelters).toEqual([]);
+    expect(map.activeShelterAvailability).toEqual([
+      expect.objectContaining({
+        shelterId: shelter.id,
+        latitude: null,
+        longitude: null,
+        availability: null,
+      }),
+    ]);
+    expect(map.mappedActiveShelterCount).toBe(0);
     expect(map.unmappedActiveShelterCount).toBe(1);
   });
 
@@ -320,6 +391,100 @@ describe('Dashboard emergency operation map API (e2e)', () => {
 
     expect(map.activeShelters).toEqual([]);
     expect(map.unmappedActiveShelterCount).toBe(0);
+  });
+
+  it('returns all reported active shelters with reported-only totals', async () => {
+    const { organization, operation } = await createActiveOperation(app);
+    const firstShelter = await createShelter(
+      app,
+      organization.id,
+      true,
+      'SH-02',
+    );
+    const secondShelter = await createShelter(
+      app,
+      organization.id,
+      true,
+      'SH-01',
+    );
+    const firstActivation = await createActivation(
+      app,
+      firstShelter.id,
+      operation.id,
+    );
+    const secondActivation = await createActivation(
+      app,
+      secondShelter.id,
+      operation.id,
+    );
+    await reportAvailability(app, firstActivation.id, {
+      operationalCapacity: 100,
+      currentOccupancy: 20,
+      reservedPlaces: 10,
+      acceptingArrivals: true,
+    });
+    await reportAvailability(app, secondActivation.id, {
+      operationalCapacity: 50,
+      currentOccupancy: 20,
+      reservedPlaces: 5,
+      acceptingArrivals: false,
+    });
+
+    const map = await getMap(app, operation.id);
+
+    expect(
+      map.activeShelterAvailability.map((shelter) => shelter.shelterCode),
+    ).toEqual(['SH-01', 'SH-02']);
+    expect(map.availabilitySummary).toEqual({
+      activeShelterCount: 2,
+      availabilityReportedShelterCount: 2,
+      availabilityNotReportedShelterCount: 0,
+      reportedOperationalCapacity: 150,
+      reportedCurrentOccupancy: 40,
+      reportedReservedPlaces: 15,
+      reportedAvailablePlaces: 95,
+      acceptingArrivalsShelterCount: 1,
+    });
+    expect(map.activeShelterAvailability[0]?.availability).toMatchObject({
+      availablePlaces: 25,
+    });
+  });
+
+  it('keeps availability coverage independent from map-coordinate coverage', async () => {
+    const { organization, operation } = await createActiveOperation(app);
+    const mappedShelter = await createShelter(app, organization.id, true);
+    const unmappedShelter = await createShelter(app, organization.id, false);
+    const mappedActivation = await createActivation(
+      app,
+      mappedShelter.id,
+      operation.id,
+    );
+    await createActivation(app, unmappedShelter.id, operation.id);
+    await reportAvailability(app, mappedActivation.id, {
+      operationalCapacity: 40,
+      currentOccupancy: 10,
+      reservedPlaces: 5,
+      acceptingArrivals: true,
+    });
+
+    const map = await getMap(app, operation.id);
+
+    expect(map.mappedActiveShelterCount).toBe(1);
+    expect(map.unmappedActiveShelterCount).toBe(1);
+    expect(map.availabilitySummary).toMatchObject({
+      activeShelterCount: 2,
+      availabilityReportedShelterCount: 1,
+      availabilityNotReportedShelterCount: 1,
+      reportedOperationalCapacity: 40,
+      reportedCurrentOccupancy: 10,
+      reportedReservedPlaces: 5,
+      reportedAvailablePlaces: 25,
+    });
+    expect(
+      map.activeShelterAvailability.find(
+        (shelter) => shelter.shelterId === unmappedShelter.id,
+      )?.availability,
+    ).toBeNull();
   });
 
   it('returns not found for a valid but unknown operation ID', async () => {
