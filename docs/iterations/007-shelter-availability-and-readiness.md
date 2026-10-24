@@ -126,6 +126,21 @@ Existing loading, error, authentication-expiry, selected-organization, responsiv
 
 **Acceptance:** The migration matches this document; missing availability remains possible; invalid values cannot be persisted.
 
+**Status:** Complete
+
+**Implementation record:**
+
+- `shelter_activation_availability` uses `shelter_activation_id` as both its
+  primary key and restrictive foreign key. It stores no duplicated shelter,
+  operation, or organization identifiers and does not create rows
+  automatically.
+- The reviewed migration adds the required numeric and total-capacity checks.
+  Cross-table physical-capacity validation remains deferred to Checkpoint 2.
+- Focused isolated PostgreSQL tests cover the one-to-one key, missing
+  activation, every negative numeric value, total-capacity overflow, and
+  restrictive activation deletion. The migration was applied only to the
+  disposable test database, which was removed after the suite.
+
 ### 2. Availability API and concurrency rules
 
 - Implement the availability module, strict DTOs, explicit responses, `GET`, and `PUT`.

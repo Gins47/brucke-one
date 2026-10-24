@@ -2,6 +2,7 @@ export * from './emergency-operations';
 export * from './operation-affected-regions';
 export * from './organizations';
 export * from './shelter-activations';
+export * from './shelter-activation-availability';
 export * from './shelters';
 export * from './roles';
 export * from './user-roles';
