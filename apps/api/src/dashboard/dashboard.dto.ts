@@ -182,3 +182,37 @@ export type DashboardOperationMapResponse = {
     acceptingArrivalsShelterCount: number;
   };
 };
+
+export type DashboardShelterAvailability = {
+  operationalCapacity: number;
+  currentOccupancy: number;
+  reservedPlaces: number;
+  availablePlaces: number;
+  acceptingArrivals: boolean;
+  availabilityNote: string | null;
+  reportedAt: Date;
+};
+
+export type DashboardShelterReadModel = {
+  id: string;
+  shelterCode: string;
+  name: string;
+  address: string;
+  countryCode: string;
+  latitude: number | null;
+  longitude: number | null;
+  capacity: number;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  activeActivation: {
+    id: string;
+    activatedAt: Date;
+    operation: {
+      id: string;
+      operationCode: string;
+      name: string;
+      status: (typeof emergencyOperationStatus.enumValues)[number];
+    };
+    availability: DashboardShelterAvailability | null;
+  } | null;
+};

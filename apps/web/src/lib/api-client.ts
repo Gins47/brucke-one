@@ -75,6 +75,7 @@ export type DashboardOperationMap = {
     addedAt: string;
   }>;
   activeShelters: Array<{
+    shelterActivationId: string;
     shelterId: string;
     shelterCode: string;
     name: string;
@@ -86,8 +87,48 @@ export type DashboardOperationMap = {
     contactEmail: string | null;
     contactPhone: string | null;
     activatedAt: string;
+    availability: ShelterAvailability | null;
   }>;
+  activeShelterAvailability: Array<DashboardOperationMap['activeShelters'][number] & {
+    latitude: number | null;
+    longitude: number | null;
+  }>;
+  mappedActiveShelterCount: number;
   unmappedActiveShelterCount: number;
+  availabilitySummary: {
+    activeShelterCount: number;
+    availabilityReportedShelterCount: number;
+    availabilityNotReportedShelterCount: number;
+    reportedOperationalCapacity: number;
+    reportedCurrentOccupancy: number;
+    reportedReservedPlaces: number;
+    reportedAvailablePlaces: number;
+    acceptingArrivalsShelterCount: number;
+  };
+};
+
+export type ShelterAvailability = {
+  operationalCapacity: number;
+  currentOccupancy: number;
+  reservedPlaces: number;
+  availablePlaces: number;
+  acceptingArrivals: boolean;
+  availabilityNote: string | null;
+  reportedAt: string;
+};
+
+export type DashboardShelter = Omit<Shelter, 'organizationId' | 'createdAt' | 'updatedAt'> & {
+  activeActivation: {
+    id: string;
+    activatedAt: string;
+    operation: {
+      id: string;
+      operationCode: string;
+      name: string;
+      status: OperationStatus;
+    };
+    availability: ShelterAvailability | null;
+  } | null;
 };
 
 export class ApiError extends Error {
@@ -144,6 +185,48 @@ export function createApiClient(baseUrl: string, onUnauthorized: () => void) {
         headers: { Authorization: `Bearer ${accessToken}` },
         signal,
       }),
+    /** Loads the selected organization's shelter dashboard projection. */
+    getOrganizationShelters: (
+      accessToken: string,
+      organizationId: string,
+      signal?: AbortSignal,
+    ) =>
+      request<DashboardShelter[]>(
+        `/dashboard/organizations/${organizationId}/shelters`,
+        { headers: { Authorization: `Bearer ${accessToken}` }, signal },
+      ),
+    /** Loads one selected-organization shelter with its current active context. */
+    getOrganizationShelter: (
+      accessToken: string,
+      organizationId: string,
+      shelterId: string,
+      signal?: AbortSignal,
+    ) =>
+      request<DashboardShelter>(
+        `/dashboard/organizations/${organizationId}/shelters/${shelterId}`,
+        { headers: { Authorization: `Bearer ${accessToken}` }, signal },
+      ),
+    /** Replaces one active shelter activation's complete availability report. */
+    replaceShelterActivationAvailability: (
+      accessToken: string,
+      activationId: string,
+      input: Omit<ShelterAvailability, 'availablePlaces' | 'reportedAt' | 'availabilityNote'> & {
+        availabilityNote?: string;
+      },
+      signal?: AbortSignal,
+    ) =>
+      request<ShelterAvailability>(
+        `/shelter-activations/${activationId}/availability`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(input),
+          signal,
+        },
+      ),
     /** Loads one cursor-paginated operation page for a selected organization. */
     getOrganizationOperations: (
       accessToken: string,

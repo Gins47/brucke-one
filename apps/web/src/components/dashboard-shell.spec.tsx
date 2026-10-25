@@ -25,7 +25,7 @@ describe('DashboardShell', () => {
     );
 
     expect(screen.getAllByRole('link', { name: 'Dashboard' })[0].getAttribute('href')).toBe('/');
-    expect(screen.getAllByRole('link', { name: 'Organizations' })[0].getAttribute('href')).toBe('/organizations');
+    expect(screen.queryByRole('link', { name: 'Organizations' })).toBeNull();
     expect(screen.getAllByRole('link', { name: 'Shelters' })[0].getAttribute('href')).toBe('/shelters');
     expect(screen.getAllByRole('link', { name: 'Emergency operations' })[0].getAttribute('href')).toBe('/operations');
   });

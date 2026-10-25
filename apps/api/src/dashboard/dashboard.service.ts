@@ -15,6 +15,7 @@ import {
   type DashboardOperationMapResponse,
   type DashboardOperationsListResponse,
   type DashboardOperationsQuery,
+  type DashboardShelterReadModel,
   type OrganizationDashboardOverviewResponse,
 } from './dashboard.dto';
 
@@ -47,6 +48,30 @@ type DashboardMapOperationRow = Pick<
   | 'endedAt'
   | 'updatedAt'
 >;
+type DashboardShelterRow = {
+  id: string;
+  shelterCode: string;
+  name: string;
+  address: string;
+  countryCode: string;
+  latitude: number | null;
+  longitude: number | null;
+  capacity: number;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  activationId: string | null;
+  activatedAt: Date | null;
+  operationId: string | null;
+  operationCode: string | null;
+  operationName: string | null;
+  operationStatus: OperationStatus | null;
+  operationalCapacity: number | null;
+  currentOccupancy: number | null;
+  reservedPlaces: number | null;
+  acceptingArrivals: boolean | null;
+  availabilityNote: string | null;
+  reportedAt: Date | null;
+};
 
 /** Maps grouped operation counts into the overview's complete status shape. */
 function toOperationCounts(rows: OperationStatusCount[]) {
@@ -111,6 +136,66 @@ function toMapOperation(
     startedAt: row.startedAt,
     endedAt: row.endedAt,
     updatedAt: row.updatedAt,
+  };
+}
+
+/** Maps a joined shelter row to the organization dashboard's current-state DTO. */
+function toDashboardShelterReadModel(
+  row: DashboardShelterRow,
+): DashboardShelterReadModel {
+  const shelter = {
+    id: row.id,
+    shelterCode: row.shelterCode,
+    name: row.name,
+    address: row.address,
+    countryCode: row.countryCode,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    capacity: row.capacity,
+    contactEmail: row.contactEmail,
+    contactPhone: row.contactPhone,
+  };
+
+  if (
+    !row.activationId ||
+    !row.activatedAt ||
+    !row.operationId ||
+    !row.operationCode ||
+    !row.operationName ||
+    !row.operationStatus
+  ) {
+    return { ...shelter, activeActivation: null };
+  }
+
+  const availability =
+    row.operationalCapacity === null
+      ? null
+      : {
+          operationalCapacity: row.operationalCapacity,
+          currentOccupancy: row.currentOccupancy!,
+          reservedPlaces: row.reservedPlaces!,
+          availablePlaces:
+            row.operationalCapacity -
+            row.currentOccupancy! -
+            row.reservedPlaces!,
+          acceptingArrivals: row.acceptingArrivals!,
+          availabilityNote: row.availabilityNote,
+          reportedAt: row.reportedAt!,
+        };
+
+  return {
+    ...shelter,
+    activeActivation: {
+      id: row.activationId,
+      activatedAt: row.activatedAt,
+      operation: {
+        id: row.operationId,
+        operationCode: row.operationCode,
+        name: row.operationName,
+        status: row.operationStatus,
+      },
+      availability,
+    },
   };
 }
 
@@ -230,6 +315,35 @@ export class DashboardService {
           ? encodeDashboardOperationCursor(finalRecord)
           : null,
     };
+  }
+
+  /** Returns one stable, joined list of shelters with each current active context. */
+  async getOrganizationShelters(
+    organizationId: string,
+  ): Promise<DashboardShelterReadModel[]> {
+    await this.findOrganization(organizationId);
+
+    const rows = await this.selectOrganizationShelters(organizationId);
+
+    return rows.map(toDashboardShelterReadModel);
+  }
+
+  /** Returns one shelter only when it belongs to the requested organization. */
+  async getOrganizationShelter(
+    organizationId: string,
+    shelterId: string,
+  ): Promise<DashboardShelterReadModel> {
+    const rows = await this.selectOrganizationShelters(
+      organizationId,
+      shelterId,
+    );
+    const shelter = rows[0];
+
+    if (!shelter) {
+      throw new NotFoundException('Shelter not found');
+    }
+
+    return toDashboardShelterReadModel(shelter);
   }
 
   /** Returns current regions and availability for every active shelter in one operation. */
@@ -405,6 +519,65 @@ export class DashboardService {
     if (!organization) {
       throw new NotFoundException('Organization not found');
     }
+  }
+
+  /** Selects shelter data with at most one current active activation for each row. */
+  private selectOrganizationShelters(
+    organizationId: string,
+    shelterId?: string,
+  ) {
+    const conditions = [eq(shelters.organizationId, organizationId)];
+
+    if (shelterId) {
+      conditions.push(eq(shelters.id, shelterId));
+    }
+
+    return this.database.db
+      .select({
+        id: shelters.id,
+        shelterCode: shelters.shelterCode,
+        name: shelters.name,
+        address: shelters.address,
+        countryCode: shelters.countryCode,
+        latitude: shelters.latitude,
+        longitude: shelters.longitude,
+        capacity: shelters.capacity,
+        contactEmail: shelters.contactEmail,
+        contactPhone: shelters.contactPhone,
+        activationId: shelterActivations.id,
+        activatedAt: shelterActivations.activatedAt,
+        operationId: emergencyOperations.id,
+        operationCode: emergencyOperations.operationCode,
+        operationName: emergencyOperations.name,
+        operationStatus: emergencyOperations.status,
+        operationalCapacity: shelterActivationAvailability.operationalCapacity,
+        currentOccupancy: shelterActivationAvailability.currentOccupancy,
+        reservedPlaces: shelterActivationAvailability.reservedPlaces,
+        acceptingArrivals: shelterActivationAvailability.acceptingArrivals,
+        availabilityNote: shelterActivationAvailability.availabilityNote,
+        reportedAt: shelterActivationAvailability.reportedAt,
+      })
+      .from(shelters)
+      .leftJoin(
+        shelterActivations,
+        and(
+          eq(shelterActivations.shelterId, shelters.id),
+          eq(shelterActivations.status, 'ACTIVE'),
+        ),
+      )
+      .leftJoin(
+        emergencyOperations,
+        eq(emergencyOperations.id, shelterActivations.emergencyOperationId),
+      )
+      .leftJoin(
+        shelterActivationAvailability,
+        eq(
+          shelterActivationAvailability.shelterActivationId,
+          shelterActivations.id,
+        ),
+      )
+      .where(and(...conditions))
+      .orderBy(asc(shelters.shelterCode), asc(shelters.id));
   }
 
   /** Finds an operation for the map projection or returns not found. */

@@ -8,7 +8,6 @@ import type { Organization } from '../lib/api-client';
 
 const navigationItems = [
   { label: 'Dashboard', href: '/' },
-  { label: 'Organizations', href: '/organizations' },
   { label: 'Shelters', href: '/shelters' },
   { label: 'Emergency operations', href: '/operations' },
 ] as const;

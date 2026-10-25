@@ -17,9 +17,11 @@ const tileFailureThreshold = 3;
 export function OperationMap({
   shelters,
   onUnavailable,
+  onSelectShelter,
 }: {
   shelters: MappedShelter[];
   onUnavailable: () => void;
+  onSelectShelter?: (shelter: MappedShelter) => void;
 }) {
   const firstShelter = shelters[0];
   const tileFailures = useRef(0);
@@ -61,7 +63,10 @@ export function OperationMap({
             <br />
             {shelter.shelterCode}
             <br />
-            See the Shelters tab for details.
+            {shelter.availability
+              ? `${shelter.availability.availablePlaces} places available`
+              : 'Availability not reported'}
+            {onSelectShelter && <><br /><button onClick={() => onSelectShelter(shelter)} type="button">View details</button></>}
           </Popup>
         </CircleMarker>
       ))}

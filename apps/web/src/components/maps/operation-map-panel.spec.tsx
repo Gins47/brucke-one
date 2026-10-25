@@ -20,6 +20,7 @@ describe('OperationMapPanel', () => {
       <OperationMapPanel
         shelters={[
           {
+            shelterActivationId: 'activation-1',
             shelterId: 'shelter-1',
             shelterCode: 'MUC-001',
             name: 'Munich Hall',
@@ -31,6 +32,7 @@ describe('OperationMapPanel', () => {
             contactEmail: null,
             contactPhone: null,
             activatedAt: '2026-10-20T10:00:00.000Z',
+            availability: null,
           },
         ]}
       />,

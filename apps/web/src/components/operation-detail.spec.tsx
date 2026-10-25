@@ -38,6 +38,7 @@ function mapResponse(organizationId: string): DashboardOperationMap {
     ],
     activeShelters: [
       {
+        shelterActivationId: 'activation-1',
         shelterId: 'shelter-1',
         shelterCode: 'MUC-001',
         name: 'Munich Hall',
@@ -49,8 +50,37 @@ function mapResponse(organizationId: string): DashboardOperationMap {
         contactEmail: 'shelter@example.test',
         contactPhone: null,
         activatedAt: '2026-10-20T10:00:00.000Z',
+        availability: null,
       },
     ],
+    activeShelterAvailability: [
+      {
+        shelterActivationId: 'activation-1',
+        shelterId: 'shelter-1',
+        shelterCode: 'MUC-001',
+        name: 'Munich Hall',
+        address: 'Example Street 1',
+        countryCode: 'DE',
+        latitude: 48.1351,
+        longitude: 11.582,
+        capacity: 250,
+        contactEmail: 'shelter@example.test',
+        contactPhone: null,
+        activatedAt: '2026-10-20T10:00:00.000Z',
+        availability: null,
+      },
+    ],
+    mappedActiveShelterCount: 1,
+    availabilitySummary: {
+      activeShelterCount: 1,
+      availabilityReportedShelterCount: 0,
+      availabilityNotReportedShelterCount: 1,
+      reportedOperationalCapacity: 0,
+      reportedCurrentOccupancy: 0,
+      reportedReservedPlaces: 0,
+      reportedAvailablePlaces: 0,
+      acceptingArrivalsShelterCount: 0,
+    },
     unmappedActiveShelterCount: 1,
   };
 }
@@ -87,8 +117,7 @@ describe('OperationDetail', () => {
     expect(screen.getByText('Map contains 1 shelter markers.')).toBeTruthy();
     expect(screen.getByText('1 active shelter lacks complete location data.')).toBeTruthy();
     expect(screen.getByText('Weather integration coming later.')).toBeTruthy();
-    expect(screen.getByText('Unavailable for all 2 active shelters')).toBeTruthy();
-    expect(screen.getByText('Not tracked yet')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Munich Hall' }).getAttribute('href')).toBe('/shelters/shelter-1');
 
     fireEvent.click(screen.getByRole('tab', { name: 'Operations teams' }));
     expect(screen.getByText('Not available yet.')).toBeTruthy();
@@ -97,6 +126,7 @@ describe('OperationDetail', () => {
   it('renders empty map and region states', async () => {
     const response = mapResponse('organization-a');
     response.activeShelters = [];
+    response.activeShelterAvailability = [];
     response.affectedRegions = [];
     response.unmappedActiveShelterCount = 0;
     const api = {
@@ -112,9 +142,8 @@ describe('OperationDetail', () => {
       />,
     );
 
-    expect(await screen.findByText('No mapped active shelters are available.')).toBeTruthy();
+    expect(await screen.findByText('No active shelters are available.')).toBeTruthy();
     expect(screen.getByText('No current affected regions are recorded.')).toBeTruthy();
-    expect(screen.getByText('Not tracked yet')).toBeTruthy();
   });
 
   it('does not display an operation from another selected organization', async () => {

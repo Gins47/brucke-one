@@ -202,11 +202,47 @@ Existing loading, error, authentication-expiry, selected-organization, responsiv
 
 ### 4. Shelter and dashboard UI
 
-- Implement the availability display and report/update flow only in the approved active-shelter context.
-- Update operation summary and Shelter-tab/map details using real data and explicit incomplete-data states.
-- Add focused frontend tests for reported, unreported, partial-coverage, update-conflict, organization switch, and session-expiry behavior.
+- Add the organization-scoped read models `GET /dashboard/organizations/:organizationId/shelters`
+  and `GET /dashboard/organizations/:organizationId/shelters/:shelterId`. They expose
+  stable shelter details and only the current active activation, its operation, and its
+  availability when present; they do not expose activation history. The list remains
+  unpaginated only for the small development dataset.
+- Replace the selected-organization shelter page's client-side filtering of the global
+  shelter API with the organization dashboard read model. Add `/shelters/:shelterId`
+  for the shelter detail and route shelter names there from the operation Shelters tab.
+- Implement availability display and the complete report/update flow only in the active
+  shelter detail context. Preserve explicit reported, not-reported, and no-active-operation
+  states, and use actual API results after an update.
+- Update the operation Shelters tab with operational capacity, current occupancy,
+  available places, and availability status. Reserved places remain on the shelter detail.
+- Add focused API and frontend tests for scoped data, reported/not-reported and inactive
+  states, navigation, update conflicts, and stale session/selection responses.
 
 **Acceptance:** The UI never invents availability values and accurately distinguishes physical capacity, operational capacity, occupancy, reservations, and available places.
+
+**Status:** Complete
+
+**Implementation record:**
+
+- `GET /dashboard/organizations/:organizationId/shelters` and
+  `GET /dashboard/organizations/:organizationId/shelters/:shelterId` use one
+  joined shelter read with the current active activation, operation, and
+  optional availability report. A shelter that belongs to another organization
+  returns `404`; no activation history is returned.
+- The selected-organization shelter list is deliberately unpaginated for the
+  small development dataset. It is a dashboard read convenience and does not
+  replace production organization authorization.
+- `/shelters` displays the selected organization’s current shelter contexts.
+  `/shelters/:shelterId` displays stable shelter facts, its active operation
+  when present, and reported availability. The form submits a complete report
+  through the existing availability `PUT` endpoint and displays the
+  server-confirmed values.
+- The operation Shelters tab uses all active shelter rows, including unmapped
+  shelters, and links each shelter to its detail page. It labels missing
+  availability explicitly and keeps reserved places on the shelter detail.
+- The selected-organization shelter page now presents reported-only readiness
+  totals, availability coverage, follow-up items, and an accessible quick
+  view. Missing reports remain unknown values throughout the UI.
 
 ### 5. Final verification and documentation
 

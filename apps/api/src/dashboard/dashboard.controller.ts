@@ -5,6 +5,7 @@ import {
   type DashboardOperationsListResponse,
   type DashboardOperationsQuery,
   type DashboardOperationMapResponse,
+  type DashboardShelterReadModel,
   type OrganizationDashboardOverviewResponse,
 } from './dashboard.dto';
 import { DashboardService } from './dashboard.service';
@@ -30,6 +31,23 @@ export class DashboardController {
     query: DashboardOperationsQuery,
   ): Promise<DashboardOperationsListResponse> {
     return this.service.getOrganizationOperations(organizationId, query);
+  }
+
+  /** Returns the selected organization's shelters and their current active context. */
+  @Get('organizations/:organizationId/shelters')
+  getOrganizationShelters(
+    @Param('organizationId', new ParseUUIDPipe()) organizationId: string,
+  ): Promise<DashboardShelterReadModel[]> {
+    return this.service.getOrganizationShelters(organizationId);
+  }
+
+  /** Returns one selected-organization shelter and its current active context. */
+  @Get('organizations/:organizationId/shelters/:shelterId')
+  getOrganizationShelter(
+    @Param('organizationId', new ParseUUIDPipe()) organizationId: string,
+    @Param('shelterId', new ParseUUIDPipe()) shelterId: string,
+  ): Promise<DashboardShelterReadModel> {
+    return this.service.getOrganizationShelter(organizationId, shelterId);
   }
 
   /** Returns the read-only map projection for one emergency operation. */

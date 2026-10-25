@@ -133,11 +133,13 @@ export function OperationDetail({
     return <p className="mt-8 text-red-700" role="alert">Unable to load operation details.</p>;
   }
 
-  const { operation, affectedRegions, activeShelters, unmappedActiveShelterCount } =
-    state.data;
-  const totalActiveShelters =
-    activeShelters.length + unmappedActiveShelterCount;
-
+  const {
+    operation,
+    affectedRegions,
+    activeShelters,
+    activeShelterAvailability,
+    unmappedActiveShelterCount,
+  } = state.data;
   return (
     <section className="mt-8 space-y-8">
       <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -211,9 +213,7 @@ export function OperationDetail({
         >
           {activeTab === 'shelters' ? (
             <SheltersTab
-              shelters={activeShelters}
-              totalActiveShelters={totalActiveShelters}
-              unmappedActiveShelterCount={unmappedActiveShelterCount}
+              shelters={activeShelterAvailability}
             />
           ) : (
             <p className="rounded-xl border border-slate-200 bg-slate-50 p-5 text-slate-600">
@@ -254,63 +254,38 @@ function Detail({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Displays the only full shelter detail list for this operation. */
+/** Displays availability for every active shelter while leaving map coverage separate. */
 function SheltersTab({
   shelters,
-  totalActiveShelters,
-  unmappedActiveShelterCount,
 }: {
-  shelters: DashboardOperationMap['activeShelters'];
-  totalActiveShelters: number;
-  unmappedActiveShelterCount: number;
+  shelters: DashboardOperationMap['activeShelterAvailability'];
 }) {
-  const totalCapacity = shelters.reduce(
-    (sum, shelter) => sum + shelter.capacity,
-    0,
-  );
-
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <article className="rounded-xl border border-slate-200 bg-white p-5">
-          <p className="text-sm font-semibold text-slate-600">Total shelter capacity</p>
-          <p className="mt-2 text-lg font-bold text-slate-950">
-            {unmappedActiveShelterCount === 0
-              ? totalCapacity
-              : `Unavailable for all ${totalActiveShelters} active shelters`}
-          </p>
-        </article>
-        <article className="rounded-xl border border-slate-200 bg-white p-5">
-          <p className="text-sm font-semibold text-slate-600">Occupancy</p>
-          <p className="mt-2 text-lg font-bold text-slate-950">Not tracked yet</p>
-        </article>
-      </div>
       {shelters.length === 0 ? (
         <p className="rounded-xl border border-slate-200 bg-white p-5 text-slate-600">
-          No mapped active shelters are available.
+          No active shelters are available.
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
-                <th className="px-4 py-3 font-semibold" scope="col">Code</th>
                 <th className="px-4 py-3 font-semibold" scope="col">Shelter</th>
-                <th className="px-4 py-3 font-semibold" scope="col">Address</th>
-                <th className="px-4 py-3 font-semibold" scope="col">Capacity</th>
-                <th className="px-4 py-3 font-semibold" scope="col">Contact</th>
+                <th className="px-4 py-3 font-semibold" scope="col">Operational capacity</th>
+                <th className="px-4 py-3 font-semibold" scope="col">Current occupancy</th>
+                <th className="px-4 py-3 font-semibold" scope="col">Available places</th>
+                <th className="px-4 py-3 font-semibold" scope="col">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-slate-800">
               {shelters.map((shelter) => (
                 <tr key={shelter.shelterId}>
-                  <td className="whitespace-nowrap px-4 py-3 font-medium">{shelter.shelterCode}</td>
-                  <td className="px-4 py-3">{shelter.name}</td>
-                  <td className="px-4 py-3">{shelter.address}</td>
-                  <td className="px-4 py-3">{shelter.capacity}</td>
-                  <td className="px-4 py-3">
-                    {shelter.contactEmail ?? shelter.contactPhone ?? 'Not provided'}
-                  </td>
+                  <td className="px-4 py-3"><Link className="font-semibold text-blue-700 underline-offset-4 hover:underline" href={`/shelters/${shelter.shelterId}`}>{shelter.name}</Link></td>
+                  <td className="px-4 py-3">{shelter.availability?.operationalCapacity ?? 'Not reported'}</td>
+                  <td className="px-4 py-3">{shelter.availability?.currentOccupancy ?? 'Not reported'}</td>
+                  <td className="px-4 py-3">{shelter.availability?.availablePlaces ?? 'Not reported'}</td>
+                  <td className="px-4 py-3">{!shelter.availability ? 'Availability not reported' : shelter.availability.acceptingArrivals ? 'Accepting arrivals' : 'Not accepting arrivals'}</td>
                 </tr>
               ))}
             </tbody>

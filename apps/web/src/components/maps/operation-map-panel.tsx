@@ -13,6 +13,7 @@ type MappedShelters = DashboardOperationMap['activeShelters'];
 type OperationMapComponent = ComponentType<{
   shelters: MappedShelters;
   onUnavailable: () => void;
+  onSelectShelter?: (shelter: MappedShelters[number]) => void;
 }>;
 
 type MapErrorBoundaryProps = {
@@ -43,8 +44,10 @@ class MapErrorBoundary extends Component<
 /** Shows the map only when the API supplies active shelters with coordinates. */
 export function OperationMapPanel({
   shelters,
+  onSelectShelter,
 }: {
   shelters: DashboardOperationMap['activeShelters'];
+  onSelectShelter?: (shelter: MappedShelters[number]) => void;
 }) {
   if (shelters.length === 0) {
     return (
@@ -58,12 +61,13 @@ export function OperationMapPanel({
     <MapLoader
       key={shelters.map((shelter) => shelter.shelterId).join(',')}
       shelters={shelters}
+      onSelectShelter={onSelectShelter}
     />
   );
 }
 
 /** Loads the browser-only map for the current shelters and displays its fallback states. */
-function MapLoader({ shelters }: { shelters: MappedShelters }) {
+function MapLoader({ shelters, onSelectShelter }: { shelters: MappedShelters; onSelectShelter?: (shelter: MappedShelters[number]) => void }) {
   const [MapComponent, setMapComponent] = useState<OperationMapComponent | null>(
     null,
   );
@@ -109,6 +113,7 @@ function MapLoader({ shelters }: { shelters: MappedShelters }) {
     <MapErrorBoundary onUnavailable={() => setIsUnavailable(true)}>
       <MapComponent
         onUnavailable={() => setIsUnavailable(true)}
+        onSelectShelter={onSelectShelter}
         shelters={shelters}
       />
     </MapErrorBoundary>

@@ -35,6 +35,7 @@ describe('OperationMap', () => {
         onUnavailable={() => undefined}
         shelters={[
           {
+            shelterActivationId: 'activation-1',
             shelterId: 'shelter-1',
             shelterCode: 'MUC-001',
             name: 'Munich Hall',
@@ -46,6 +47,7 @@ describe('OperationMap', () => {
             contactEmail: null,
             contactPhone: null,
             activatedAt: '2026-10-20T10:00:00.000Z',
+            availability: null,
           },
         ]}
       />,
@@ -54,7 +56,7 @@ describe('OperationMap', () => {
     expect(screen.getAllByTestId('shelter-marker')).toHaveLength(1);
     expect(screen.getByText('Munich Hall')).toBeTruthy();
     expect(screen.getByTestId('shelter-marker').textContent).toContain(
-      'See the Shelters tab for details.',
+      'Availability not reported',
     );
     expect(fitBounds).toHaveBeenCalledOnce();
   });
@@ -67,6 +69,7 @@ describe('OperationMap', () => {
         onUnavailable={onUnavailable}
         shelters={[
           {
+            shelterActivationId: 'activation-1',
             shelterId: 'shelter-1',
             shelterCode: 'MUC-001',
             name: 'Munich Hall',
@@ -78,6 +81,7 @@ describe('OperationMap', () => {
             contactEmail: null,
             contactPhone: null,
             activatedAt: '2026-10-20T10:00:00.000Z',
+            availability: null,
           },
         ]}
       />,
