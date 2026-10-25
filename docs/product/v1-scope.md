@@ -1,126 +1,146 @@
-# BruckeOne — Version 1 Product Scope
+# Brücke One — Version 1 Product Scope
 
 **Status:** Proposed V1 product scope (living product document)  
-**Purpose:** Define what BruckeOne V1 should achieve. Implementation sequencing belongs in `docs/iterations/`; architecture decisions belong in `docs/architecture/` and `docs/decisions/`.
+**Purpose:** Define the bounded V1 product outcome. Implementation sequencing belongs in `docs/iterations/`; architecture decisions belong in `docs/architecture/` and `docs/decisions/`.
 
 ## 1. Product vision
 
-**BruckeOne — Bridging people, resources, and relief.**
+**Brücke One helps a local relief organization move an affected household to a suitable, capacity-confirmed shelter quickly and safely.**
 
-BruckeOne is an emergency-response coordination platform that helps relief organizations understand needs, coordinate shelters and essential resources, and communicate verified information. It is designed to be country-independent, including settings with limited connectivity and incomplete address data.
+Brucke One reduces the manual coordination burden during an active emergency. It gives operators truthful shelter availability, helps affected people provide the minimum information needed for placement, and preserves human oversight for complex or risky cases.
 
-BruckeOne supports human responders and official authorities; it does not replace their judgment or authority.
+Brücke One is an AI-assisted shelter coordination proof of concept. It supports relief workers and official authorities; it does not replace their judgment, authority, emergency services, or public warning systems.
 
 ## 2. V1 operating model
 
 - **One relief organization** manages multiple emergency operations and shelters.
 - A physical shelter can be reused across operations through historical **shelter activations**.
-- **Only one active activation per physical shelter** is permitted in V1.
-- Coordinators manage operations; shelter managers and field teams contribute operational updates.
-- Government/authority information is treated as a verified external input, not as something BruckeOne originates autonomously.
-- The core application remains useful when AI services are unavailable.
+- **Only one active activation per physical shelter** is permitted at a time.
+- Shelter availability is operation-specific. It distinguishes operational capacity, current occupancy, confirmed reservations, and whether a shelter is accepting arrivals.
+- Affected people can submit a help request themselves or through a volunteer or operator. The pilot retains only the requester name and emergency contact phone number for follow-up.
+- Routine, low-risk groups of **up to 10 people** may receive an automatically confirmed placement only when all deterministic eligibility and capacity rules pass: they can reach the shelter independently, report no medical support need, and have a confirmed location.
+- Groups above 10 people, requests involving medical support needs, uncertain locations, or failed matching require operator review before a reservation is made.
+- Shelter volunteers verify arrivals and register people individually. This updates occupancy without losing the reservation history.
+- The core workflow remains useful when AI, geocoding, or routing providers are unavailable.
 
 ## 3. Intended users
 
 | User                             | Primary need                                                                      |
 | -------------------------------- | --------------------------------------------------------------------------------- |
-| Relief organization coordinator  | See operations, reports, shelter availability, and resource needs; make decisions |
-| Shelter manager                  | Update shelter occupancy, capacity, and essential stock levels                    |
-| Field responder / volunteer      | Submit observations and report needs from the field                               |
-| Affected resident                | Report needs or receive approved information through supported channels           |
-| Authorized information publisher | Review and approve messages before dissemination                                  |
+| Emergency operator | Monitor requests and shelter availability; handle exceptions; override decisions when needed. |
+| Shelter volunteer | Verify arrivals, register individuals, and keep occupancy accurate. |
+| Affected person or household representative | Request help, confirm a suitable shelter, receive clear arrival instructions and a reservation reference. |
+| AI intake assistant | Collect only necessary information, translate or clarify it, and explain deterministic outcomes within defined policy limits. |
 
-V1 permissions and channel availability will be specified during the relevant feature iterations.
+For the PoC, an administrator creates operator and shelter-volunteer accounts and assigns their credentials. This is a deliberately simple authentication model, not a complete production authorization design.
 
 ## 4. V1 capabilities (product target)
 
-### 4.1 Organization and operations
+### 4.1 Emergency operations and shelter readiness
 
-- Maintain a relief organization and its emergency operations.
-- Record operation status, region/context, and associated shelters.
-- Preserve historical operations and activation records.
+- Maintain emergency operations, affected regions, and physical shelters.
+- Activate a shelter for an emergency operation while preserving historical records.
+- Show operational capacity, current occupancy, confirmed reservations, derived available places, and acceptance status.
+- Prevent overbooking with database-backed, concurrency-safe capacity updates and reservations.
+- Show an explicit **not reported** state rather than treating missing availability as zero occupancy or available capacity.
 
-### 4.2 Shelter coordination
+### 4.2 Help requests and location confirmation
 
-- Register physical shelters and their locations, including descriptive address/landmark information where available.
-- Activate and close shelters for operations.
-- Track operational capacity, occupancy, and availability without overbooking.
-- Support auditable, concurrency-safe updates.
+- Capture the minimum information needed to find a suitable shelter: group size, location, contact preference, and relevant accommodation needs.
+- Retain only the requester name and emergency contact phone number for the pilot; define a retention and deletion policy before any live use.
+- Accept a human-readable address, postcode, locality, landmark, or device location; never require a person to provide latitude and longitude manually.
+- Geocode an address through a replaceable provider integration and require confirmation for ambiguous or approximate results.
+- Treat a missing or uncertain location as an operator-review condition, not a reason to guess.
 
-### 4.3 Field reports and location context
+### 4.3 Deterministic matching and reservations
 
-- Capture reports of incidents, needs, and disruptions from authorized users or supported intake channels.
-- Support GPS coordinates and human-readable locations/landmarks, without assuming reliable street addresses.
-- Surface possible duplicate reports for human review; do not silently discard reports.
+- Consider only shelters belonging to the relevant active operation, accepting arrivals, and able to accommodate the requested group.
+- For the pilot, select the nearest **eligible** shelter: one in the active operation that is accepting arrivals and can atomically reserve enough places. Later versions may add suitability and route-travel-time ranking.
+- Reserve places atomically before telling a person that placement is confirmed.
+- Track reservation states, including review pending, confirmed, partially arrived, arrived, cancelled, and expired. A confirmed reservation expires 24 hours after confirmation unless it is checked in, cancelled, or extended by an operator.
+- Convert reserved places to occupancy as people arrive; restore capacity when a reservation is cancelled or expires.
 
-### 4.4 Essential resources
+### 4.4 Arrival and check-in
 
-- Track essential stock categories (e.g., food, water, hygiene supplies, broad medicine categories) and reported shortages at shelters.
-- Record operational resources and volunteer assignments at an appropriate level of detail.
-- Avoid treating inventory figures as guaranteed real-time truth without updates and timestamps.
+- Provide a short-lived, signed QR code or opaque reservation reference after a confirmed placement.
+- Let a shelter volunteer look up and validate an active reservation at the destination shelter.
+- Support individual registration and check-in against a group reservation.
+- Record who performed the check-in and when, without placing sensitive identity-document data in a QR code.
 
-### 4.5 Verified communications
+### 4.5 AI-assisted intake and operator supervision
 
-- Receive or record verified updates from authorized sources.
-- Support human approval before distributing emergency information.
-- Track notification attempts and outcomes when outbound channels are implemented.
-- Plan for multilingual messaging; actual languages/channels are selected during implementation.
-
-### 4.6 AI-assisted coordination
-
-- Provide optional AI summaries of reports and operational information.
-- Explore RAG over approved protocols and verified source material, with source attribution and review.
-- Keep AI read-only or human-approved for consequential actions.
-- Do not use AI to autonomously dispatch resources, issue official alerts, or provide unverified medical advice.
+- Use a single text-chat AI intake workflow to ask concise follow-up questions, translate where supported, structure a help request, and explain outcomes in plain language. The initial interaction language is English; the intended product direction is to translate supported user languages automatically.
+- Restrict AI to typed, narrow tools; it has no direct database access and cannot invent shelter availability, routes, or policy results.
+- Let deterministic domain services—not the model—validate eligibility, capacity, reservations, and status transitions.
+- Automatically confirm only groups of up to 10 people that can reach the shelter independently, report no medical support need, and satisfy all eligibility, capacity, and location-confirmation checks.
+- Send larger groups and defined risk conditions to an operator queue with a concise AI-generated summary and escalation reason.
+- Preserve an audit trail of AI workflow decisions, tool results, reservation outcomes, operator overrides, and check-ins.
 
 ## 5. Key product principles and constraints
 
-1. **Human-in-control:** Operational decisions and public communications remain accountable to authorized people.
-2. **Reliability first:** Core shelter and reporting workflows work without AI.
-3. **Data minimization:** Collect only necessary personal information; enforce role-based access and appropriate retention.
-4. **Traceability:** Preserve historical activations, significant changes, approvals, and communication outcomes.
-5. **Country-neutral design:** Avoid hard-coded country-specific administrative structures and assumptions about addressing.
-6. **Progressive connectivity support:** Design interfaces and APIs with unreliable networks in mind; full offline-first synchronization is not automatically included in the initial release.
+1. **Capacity is authoritative:** Derived availability and reservations are calculated and enforced by transactional domain logic, never by AI-generated text.
+2. **Human accountability:** Operators can review and override every recommendation. Defined high-risk cases always require review.
+3. **No dangerous guessing:** The system must escalate uncertain locations, unavailable capacity, unsupported needs, and failed integrations.
+4. **Data minimization:** Collect only what is needed for placement and arrival. Do not put names, medical details, or identity-document data in QR codes.
+5. **Explainability:** Recommendations must state the factual basis—such as available places, active operation, acceptance status, and confirmed location.
+6. **Graceful degradation:** If AI, geocoding, or routing fails, operators can still create and manage requests using the core application.
+7. **Traceability:** Preserve historical activations, availability reports, reservations, arrivals, and material operator decisions.
+8. **Country-neutral design:** Do not assume a single address format, administrative structure, language, or identity-document format.
 
 ## 6. Explicitly outside initial V1 scope
 
+- Replacing government emergency systems, emergency call handling, or authoritative alert providers.
+- Medical diagnosis, medical triage, treatment advice, or autonomous life-safety decisions.
+- Autonomous dispatch of vehicles, police, fire services, ambulances, food, medicine, or volunteers.
+- Government-command ingestion, live weather/disaster feeds, and predictive evacuation modelling.
+- Inventory optimisation, supplier ordering, donation management, and comprehensive logistics.
+- General public social accounts, full identity-verification infrastructure, or storage of identity-document images.
 - Multi-organization resource sharing and cross-NGO permissions.
-- Autonomous emergency dispatch, medical triage, or publication of official warnings.
-- Replacing government emergency systems or authoritative alert providers.
-- Comprehensive vehicle fleet management.
-- Guaranteed offline-first mobile synchronization across all workflows.
-- Nationwide scale or multi-region active-active deployment from day one.
-- Complex microservices infrastructure unless justified by measured requirements.
+- Voice, SMS, WhatsApp, or telephone integrations.
+- Full offline-first synchronisation, nationwide scale, or multi-region active-active deployment.
+- A multi-agent AI architecture, unrestricted RAG, or AI actions outside the defined intake and matching workflow.
 
 These are potential future directions, not commitments for the initial release.
 
 ## 7. Initial delivery slice vs. V1
 
-**Iteration 001 — Project foundation** is intentionally smaller than the V1 product: existing repository and Docker Compose, NestJS API, Drizzle, PostgreSQL/pgvector, migrations, dependency injection, and verification tests.
+The iterations deliver thin, tested vertical slices toward this target:
 
-Subsequent iterations should deliver thin, tested vertical slices toward the capabilities above. This document does not authorize Codex to implement all V1 features at once.
+| Delivery stage | Product outcome |
+| --- | --- |
+| Iteration 007 | Shelter availability, readiness, and shelter-focused views. |
+| Future intake iteration | Structured help requests and minimal location capture. |
+| Future allocation iteration | Deterministic matching, transaction-safe reservations, and operator exceptions. |
+| Future arrival iteration | Reservation reference/QR flow, individual check-in, and occupancy reconciliation. |
+| Future location iteration | Geocoding, location confirmation, and route comparison. |
+| Future AI iteration | Single AI-assisted intake workflow with typed tools, evaluation, auditability, and human oversight. |
+
+This product document is context, not authorization to implement all capabilities at once. Each implementation change must be explicitly limited by its active iteration and checkpoint.
 
 ## 8. V1 success criteria (to refine)
 
-A useful V1 demonstration should let an authorized coordinator:
+A useful V1 demonstration lets a local relief organization complete this end-to-end journey:
 
-1. Create or view an emergency operation and activate a registered shelter.
-2. See current shelter capacity and operational needs.
-3. Receive a field report with usable location context and flag potential duplicates.
-4. Review essential resource shortages.
-5. Approve and trace an operational communication.
-6. Optionally obtain an AI-generated, source-grounded summary while the core workflow continues to function if AI is unavailable.
+1. An authorized user creates an emergency operation, activates shelters, and records truthful shelter availability.
+2. An affected household submits a structured help request with a confirmed usable location.
+3. The system identifies eligible shelters and explains the recommendation using factual data.
+4. A routine, low-risk group can receive a capacity-confirmed reservation without occupying operator time; a large, uncertain, or high-risk request appears in the operator queue.
+5. The person receives clear destination and arrival information with a reservation reference or QR code.
+6. A volunteer verifies the arrival, registers individuals, and the system updates occupancy safely.
+7. The organization can see current occupancy, expected arrivals, available places, exceptions, and the history behind a placement.
 
-Quantitative service targets, supported channels, geographic rollout, and security/privacy acceptance criteria remain to be specified before any real-world use.
+The demonstration is successful only if it never confirms more people than the applicable shelter can accommodate.
 
 ## 9. Open product decisions
 
-- Which reporting and notification channels are required for the first usable pilot?
-- Which user roles and approval permissions are mandatory for V1?
-- What is the minimum personal data needed for resident support?
-- Which official data sources and languages will the pilot support?
-- What offline capability is essential for the first pilot, versus later?
-- What operational scale and availability targets should drive deployment choices?
+- The current auto-assignment policy is groups of up to 10 people that can reach the shelter independently, report no medical support need, and have a confirmed location. Which further conditions should later be added?
+- The pilot matches the nearest eligible shelter. Which accommodation needs should later become structured, deterministic matching criteria?
+- A reservation currently expires after 24 hours. Should emergency-operation type or travel time later affect that duration?
+- The pilot keeps requester name and emergency contact phone number. What retention and deletion policy is required before a live pilot?
+- The initial AI flow is English text chat with intended automatic translation for supported user languages. Which languages should be prioritised, and when should voice be introduced?
+- Google Maps Platform is the PoC geocoding and routing provider. What fallback is required before a live pilot?
+- The PoC lets an admin create credentials for operators and shelter volunteers. What role and authentication model is required before a live pilot?
+- Service availability, privacy, security, and legal acceptance requirements are deferred because this is a PoC; they must be defined before real-world use.
 
 ## 10. Documentation boundaries
 
