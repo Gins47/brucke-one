@@ -158,10 +158,37 @@ curl --get \
   http://localhost:3000/dashboard/organizations/11111111-1111-1111-1111-111111111111/operations
 ```
 
+### Organization shelters
+
+Returns the selected organization's stable shelter facts and, when one exists,
+its current active activation, operation, and availability report. The list is
+unpaginated for the small development dataset; it is a dashboard convenience,
+not an authorization boundary.
+
+```bash
+curl http://localhost:3000/dashboard/organizations/11111111-1111-1111-1111-111111111111/shelters \
+  --header 'Authorization: Bearer <access-token>'
+```
+
+### Shelter activation availability
+
+Availability is a complete current snapshot for one shelter activation. A GET
+returns `availability: null` when no report exists. A PUT requires active
+parents and returns `409` if the parent state or physical shelter capacity does
+not permit the report. `availablePlaces` is derived from the submitted values
+and is never stored.
+
+```bash
+curl http://localhost:3000/shelter-activations/33333333-3333-3333-3333-333333333333/availability \
+  --header 'Authorization: Bearer <access-token>'
+```
+
 ### Emergency operation map projection
 
 Returns one operation summary, its current affected regions, active shelters
-with coordinates, and the count of active shelters without coordinates.
+with coordinates, active-shelter availability coverage, and the count of
+active shelters without coordinates. Capacity totals cover only shelters with
+a reported availability snapshot.
 
 ```bash
 curl http://localhost:3000/dashboard/emergency-operations/22222222-2222-2222-2222-222222222222/map \

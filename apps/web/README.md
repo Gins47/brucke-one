@@ -42,9 +42,12 @@ npm run build
 - `/organizations` — choose and locally search the loaded organization list.
 - `/` — the selected organization dashboard, including overview counts and
   active operations.
-- `/shelters` — shelters for the selected organization. The API currently
-  returns a global unpaginated list, so this development UI filters it in the
-  browser. This is not an authorization boundary.
+- `/shelters` — selected-organization shelter readiness, including
+  reported-only totals, availability coverage, follow-up items, a responsive
+  list, and a map where coordinates are available.
+- `/shelters/[shelterId]` — stable shelter facts, its active operation context,
+  and the complete availability report/update form when the parent operation
+  remains active.
 - `/operations` — selected-organization operations with status filters and
   cursor-based Load more pagination.
 - `/operations/[operationId]` — operation details, current affected regions,
@@ -58,6 +61,10 @@ details remain available in the Shelters tab. See the [OpenStreetMap tile
 usage policy](https://operations.osmfoundation.org/policies/tiles/) before
 using this local setup at larger scale.
 
+The shelter readiness map displays only real selected-organization shelter
+data. It labels accepting, not-accepting, not-reported, and inactive shelters
+separately; the shelter list remains usable when that map is unavailable.
+
 ## Current limitations
 
 This is a development demonstration. Authentication uses the local,
@@ -65,8 +72,9 @@ application-wide ADMIN role; it is not organization-level isolation. Tokens
 and selected organizations are held only in memory, and logout does not revoke
 an already issued token.
 
-The UI does not implement write actions, persistent sessions, refresh tokens,
-region boundaries, historical map reconstruction, map clustering or viewport
+Apart from complete availability reports for active shelter activations, the
+UI does not implement write actions, persistent sessions, refresh tokens,
+region boundaries, historical map reconstruction, map clustering, or viewport
 search. Weather, occupancy, operations teams, people seeking help, support
 units, and approvals are intentionally shown as unavailable until their API
 data and workflows exist.

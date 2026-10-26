@@ -1,6 +1,6 @@
 # Iteration 007 — Shelter Availability and Operational Readiness
 
-**Status:** Planned  
+**Status:** Complete
 **Prerequisites:** Iterations 001–006 accepted; shelters, emergency operations, shelter activations, dashboard read APIs, and development authentication are available.
 
 ## Goal
@@ -242,7 +242,11 @@ Existing loading, error, authentication-expiry, selected-organization, responsiv
   availability explicitly and keeps reserved places on the shelter detail.
 - The selected-organization shelter page now presents reported-only readiness
   totals, availability coverage, follow-up items, and an accessible quick
-  view. Missing reports remain unknown values throughout the UI.
+  view. Missing reports remain unknown values throughout the UI. Its map uses
+  only real shelter context: accepting, not-accepting, not-reported, and
+  inactive shelters are labelled distinctly; it never fabricates activation
+  identifiers or availability values. The responsive shelter list remains
+  usable when the map is unavailable.
 
 ### 5. Final verification and documentation
 
@@ -251,6 +255,35 @@ Existing loading, error, authentication-expiry, selected-organization, responsiv
 - Update README and iteration records with actual API contracts, calculation semantics, data freshness limitations, and deferred work.
 
 **Acceptance:** The final documentation records only verified behavior and remaining limitations.
+
+**Status:** Complete
+
+**Final acceptance summary:**
+
+- A shelter activation has at most one availability snapshot. PostgreSQL
+  rejects missing activation references, negative values, and snapshots where
+  occupancy plus reservations exceeds operational capacity; deleting an
+  activation with availability is restricted.
+- `GET /shelter-activations/:activationId/availability` returns either a
+  reported snapshot or `{ shelterActivationId, availability: null }`. `PUT`
+  replaces the complete snapshot only while the activation and its operation
+  are active. `availablePlaces` is always derived as operational capacity
+  minus current occupancy minus reserved places and is never persisted.
+- Dashboard read models and the selected-organization shelter UI distinguish
+  reported, not-reported, and inactive contexts. Read-model capacity totals
+  include reported availability only, so they are coverage-limited rather
+  than complete operation totals. Map markers, the list, quick view, and
+  shelter detail use the same real status data.
+- Verification on Node 24.22.0 passed: availability service tests (5), API
+  unit tests (58), isolated PostgreSQL integration tests (18 suites, 111
+  tests), frontend tests (13 files, 33 tests), API and web builds, API and web
+  lint, Drizzle schema validation, and `git diff --check`.
+
+**Verified deferred work:** People and registrations, reservations and
+automatic matching, resources and inventory, suppliers and dispatch, AI and
+approvals, weather/hazard integration, production tenant authorization,
+persistent sessions, notifications, analytics, and production-scale
+pagination/indexing remain out of scope.
 
 ## Explicitly deferred
 
