@@ -7,3 +7,4 @@ export * from './shelters';
 export * from './roles';
 export * from './user-roles';
 export * from './users';
+export * from './help-requests';
