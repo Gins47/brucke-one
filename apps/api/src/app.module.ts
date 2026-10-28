@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { EmergencyOperationsModule } from './emergency-operations/emergency-operations.module';
+import { HelpRequestsModule } from './help-requests/help-requests.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { OperationAffectedRegionsModule } from './operation-affected-regions/operation-affected-regions.module';
 import { SheltersModule } from './shelters/shelters.module';
@@ -19,6 +20,7 @@ import { ShelterActivationsModule } from './shelter-activations/shelter-activati
     OrganizationsModule,
     OperationAffectedRegionsModule,
     EmergencyOperationsModule,
+    HelpRequestsModule,
     SheltersModule,
     ShelterActivationsModule,
     ShelterActivationAvailabilityModule,

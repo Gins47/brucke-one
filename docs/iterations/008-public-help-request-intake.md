@@ -164,6 +164,34 @@ The protected queue is scoped through the operation's organization. It initially
 
 **Acceptance:** A person can submit a valid country-scoped request without login, while public endpoints disclose only intentional information.
 
+**Status:** Complete
+
+**Implementation record:**
+
+- `GET /public/countries/:countryCode/emergency-operations` is explicitly
+  public. It normalizes a two-letter country code, returns only active
+  operations in a deterministic operation-code/ID order, and exposes only
+  the operation ID, code, name, country code, and current affected regions.
+- `POST /public/countries/:countryCode/help-requests` is explicitly public
+  and uses a strict request schema. It normalizes an optional email, locks and
+  validates the selected active operation for the route country, and creates a
+  `PENDING_REVIEW` request with a 144-bit opaque server-generated reference.
+  Missing, inactive, and country-mismatched operations all return the same
+  public-safe `404 Emergency operation not found` response.
+- A new request and a duplicate normalized email both return `201` with a
+  fresh ephemeral `acknowledgementReference`, `PENDING_REVIEW`, a current
+  `acknowledgedAt` timestamp, and `Your request has been received. Emergency
+  staff will review it.` The acknowledgement reference is not persisted and
+  is not a lookup credential. The persisted `publicReference` remains private
+  to later controlled workflows. A duplicate does not read, create, or modify
+  the existing request and does not disclose a prior submission.
+- Focused service and isolated PostgreSQL HTTP tests cover public listing,
+  request validation, country and lifecycle checks, duplicate-safe
+  acknowledgement, and continued protection of existing API routes.
+- No rate-limiting facility was already established in this stateless API, so
+  the iteration adds neither an in-memory limiter nor a dependency. Basic
+  rate limiting and production-grade abuse prevention remain deferred.
+
 ### 3. Protected operator queue API
 
 - Add the operation-scoped paginated queue read model.
