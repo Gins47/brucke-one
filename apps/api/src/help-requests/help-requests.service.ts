@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
 
 import { DatabaseService } from '../database/database.service';
 import {
@@ -11,9 +11,13 @@ import {
 } from '../database/schema';
 import type {
   CreatePublicHelpRequestRequest,
+  HelpRequestQueueQuery,
+  HelpRequestQueueResponse,
+  OperatorHelpRequestResponse,
   PublicEmergencyOperationResponse,
   PublicHelpRequestAcknowledgement,
 } from './help-requests.dto';
+import { encodeHelpRequestQueueCursor } from './help-requests.dto';
 
 /** Checks PostgreSQL error codes on Drizzle errors and their underlying causes. */
 function hasPostgresErrorCode(error: unknown, code: string): boolean {
@@ -44,6 +48,25 @@ function toAcknowledgement(
     status: 'PENDING_REVIEW',
     acknowledgedAt,
     message: 'Your request has been received. Emergency staff will review it.',
+  };
+}
+
+/** Maps an internal help-request row to the fields available to operators. */
+function toOperatorHelpRequest(
+  row: OperatorHelpRequestResponse,
+): OperatorHelpRequestResponse {
+  return {
+    id: row.id,
+    publicReference: row.publicReference,
+    requesterName: row.requesterName,
+    requesterPhone: row.requesterPhone,
+    requesterEmail: row.requesterEmail,
+    groupSize: row.groupSize,
+    locationDescription: row.locationDescription,
+    canTravelIndependently: row.canTravelIndependently,
+    medicalSupportNeeded: row.medicalSupportNeeded,
+    status: row.status,
+    createdAt: row.createdAt,
   };
 }
 
@@ -170,6 +193,74 @@ export class HelpRequestsService {
       }
 
       throw error;
+    }
+  }
+
+  /** Returns one operation's pending-by-default queue with stable cursor pagination. */
+  async findOperatorQueue(
+    operationId: string,
+    query: HelpRequestQueueQuery,
+  ): Promise<HelpRequestQueueResponse> {
+    await this.findOperation(operationId);
+
+    const conditions = [
+      eq(helpRequests.emergencyOperationId, operationId),
+      eq(helpRequests.status, query.status),
+    ];
+
+    if (query.cursor) {
+      conditions.push(
+        or(
+          lt(helpRequests.createdAt, query.cursor.createdAt),
+          and(
+            eq(helpRequests.createdAt, query.cursor.createdAt),
+            lt(helpRequests.id, query.cursor.id),
+          ),
+        )!,
+      );
+    }
+
+    const records = await this.database.db
+      .select({
+        id: helpRequests.id,
+        publicReference: helpRequests.publicReference,
+        requesterName: helpRequests.requesterName,
+        requesterPhone: helpRequests.requesterPhone,
+        requesterEmail: helpRequests.requesterEmail,
+        groupSize: helpRequests.groupSize,
+        locationDescription: helpRequests.locationDescription,
+        canTravelIndependently: helpRequests.canTravelIndependently,
+        medicalSupportNeeded: helpRequests.medicalSupportNeeded,
+        status: helpRequests.status,
+        createdAt: helpRequests.createdAt,
+      })
+      .from(helpRequests)
+      .where(and(...conditions))
+      .orderBy(desc(helpRequests.createdAt), desc(helpRequests.id))
+      .limit(query.limit + 1);
+    const hasNextPage = records.length > query.limit;
+    const pageRecords = records.slice(0, query.limit);
+    const finalRecord = pageRecords.at(-1);
+
+    return {
+      items: pageRecords.map(toOperatorHelpRequest),
+      nextCursor:
+        hasNextPage && finalRecord
+          ? encodeHelpRequestQueueCursor(finalRecord)
+          : null,
+    };
+  }
+
+  /** Confirms the requested operation exists before exposing its queue. */
+  private async findOperation(operationId: string): Promise<void> {
+    const [operation] = await this.database.db
+      .select({ id: emergencyOperations.id })
+      .from(emergencyOperations)
+      .where(eq(emergencyOperations.id, operationId))
+      .limit(1);
+
+    if (!operation) {
+      throw new NotFoundException('Emergency operation not found');
     }
   }
 }

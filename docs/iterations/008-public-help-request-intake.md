@@ -199,6 +199,29 @@ The protected queue is scoped through the operation's organization. It initially
 
 **Acceptance:** An authorized operator can see only the pending requests for their operation.
 
+**Status:** Complete
+
+**Implementation record:**
+
+- `GET /emergency-operations/:operationId/help-requests` is protected by the
+  existing JWT and current ADMIN database-assignment guard. It returns `404`
+  when the selected operation does not exist and never exposes an unscoped
+  organization-wide queue.
+- The queue defaults to `PENDING_REVIEW`. A strict optional `status` query
+  accepts only the established `help_request_status` values. It returns the
+  minimum operator triage fields, ordered by `createdAt DESC, id DESC`, with
+  an opaque cursor encoding both values. The existing
+  `(emergency_operation_id, created_at)` index scopes the query; no index or
+  migration was added.
+- Current ADMIN access is application-wide, so the selected operation is the
+  queue boundary but there is no organization-membership check yet. Finer
+  organization-scoped roles and access rules remain deferred to Iteration 011.
+- Focused isolated PostgreSQL HTTP tests cover protected access, operation
+  scoping, empty results, known-status filtering, tied-timestamp pagination,
+  validation failures, and missing operations.
+- The queue is read-only. Assignment, shelter matching, reservations, status
+  transitions, geocoding, QR lookup, and notifications remain deferred.
+
 ### 4. Public and operator UI
 
 - Implement the public mobile-first request form and confirmation state.
