@@ -1,4 +1,22 @@
 services:
+  redis:
+    image: redis:8.10.3-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  redis-insight:
+    image: redis/redisinsight:latest
+    ports:
+      - "127.0.0.1:5540:5540"
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - redis-insight-data:/data
   postgres:
     image: pgvector/pgvector:0.8.6-pg18
     container_name: brucke-postgres
@@ -18,3 +36,4 @@ services:
 
 volumes:
   brucke_dev_postgres_data:
+  redis-insight-data:
