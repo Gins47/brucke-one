@@ -48,6 +48,9 @@ export type PublicHelpRequestAcknowledgement = {
   message: string;
 };
 
+/** Validates the UUID supplied in the public idempotency request header. */
+export const idempotencyKeySchema = z.uuid();
+
 export type HelpRequestQueueCursor = {
   createdAt: Date;
   id: string;

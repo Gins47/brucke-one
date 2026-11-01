@@ -1,11 +1,16 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, desc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 
 import { DatabaseService } from '../database/database.service';
 import {
   emergencyOperations,
+  helpRequestIdempotency,
   helpRequests,
   operationAffectedRegions,
 } from '../database/schema';
@@ -18,20 +23,6 @@ import type {
   PublicHelpRequestAcknowledgement,
 } from './help-requests.dto';
 import { encodeHelpRequestQueueCursor } from './help-requests.dto';
-
-/** Checks PostgreSQL error codes on Drizzle errors and their underlying causes. */
-function hasPostgresErrorCode(error: unknown, code: string): boolean {
-  if (typeof error !== 'object' || error === null) {
-    return false;
-  }
-
-  const databaseError = error as {
-    code?: unknown;
-    cause?: { code?: unknown };
-  };
-
-  return databaseError.code === code || databaseError.cause?.code === code;
-}
 
 /** Generates an opaque 144-bit value for a stored or acknowledgement reference. */
 function createOpaqueReference(): string {
@@ -49,6 +40,43 @@ function toAcknowledgement(
     acknowledgedAt,
     message: 'Your request has been received. Emergency staff will review it.',
   };
+}
+
+/** Replays the durable acknowledgement stored for a completed idempotent submission. */
+function toStoredAcknowledgement(row: {
+  acknowledgementReference: string;
+  acknowledgementStatus: string;
+  acknowledgementMessage: string;
+  acknowledgedAt: Date;
+}): PublicHelpRequestAcknowledgement {
+  return {
+    acknowledgementReference: row.acknowledgementReference,
+    status: row.acknowledgementStatus as 'PENDING_REVIEW',
+    acknowledgedAt: row.acknowledgedAt,
+    message: row.acknowledgementMessage,
+  };
+}
+
+/** Produces a stable SHA-256 fingerprint for one normalized public submission. */
+export function createPublicHelpRequestFingerprint(
+  countryCode: string,
+  input: CreatePublicHelpRequestRequest,
+): string {
+  const canonicalRequest = {
+    countryCode,
+    emergencyOperationId: input.emergencyOperationId,
+    requesterName: input.requesterName,
+    requesterPhone: input.requesterPhone,
+    requesterEmail: input.requesterEmail ?? null,
+    groupSize: input.groupSize,
+    locationDescription: input.locationDescription,
+    canTravelIndependently: input.canTravelIndependently,
+    medicalSupportNeeded: input.medicalSupportNeeded,
+  };
+
+  return createHash('sha256')
+    .update(JSON.stringify(canonicalRequest))
+    .digest('hex');
 }
 
 /** Maps an internal help-request row to the fields available to operators. */
@@ -151,49 +179,101 @@ export class HelpRequestsService {
     }));
   }
 
-  /** Persists an active-country request or returns the same acknowledgement for duplicates. */
+  /** Persists or replays an idempotent public request without disclosing duplicate emails. */
   async createPublicRequest(
     countryCode: string,
     input: CreatePublicHelpRequestRequest,
+    idempotencyKey: string,
   ): Promise<PublicHelpRequestAcknowledgement> {
+    const requestFingerprint = createPublicHelpRequestFingerprint(
+      countryCode,
+      input,
+    );
     const publicReference = createOpaqueReference();
     const acknowledgementReference = createOpaqueReference();
     const acknowledgedAt = new Date();
+    const acknowledgement = toAcknowledgement(
+      acknowledgementReference,
+      acknowledgedAt,
+    );
 
-    try {
-      return await this.database.transaction(async (tx) => {
-        const [operation] = await tx
-          .select({ id: emergencyOperations.id })
-          .from(emergencyOperations)
-          .where(
-            and(
-              eq(emergencyOperations.id, input.emergencyOperationId),
-              eq(emergencyOperations.countryCode, countryCode),
-              eq(emergencyOperations.status, 'ACTIVE'),
-            ),
-          )
+    return this.database.transaction(async (tx) => {
+      const [createdIdempotency] = await tx
+        .insert(helpRequestIdempotency)
+        .values({
+          idempotencyKey,
+          requestFingerprint,
+          acknowledgementReference,
+          acknowledgementStatus: acknowledgement.status,
+          acknowledgementMessage: acknowledgement.message,
+          acknowledgedAt,
+        })
+        .onConflictDoNothing()
+        .returning({ idempotencyKey: helpRequestIdempotency.idempotencyKey });
+
+      if (!createdIdempotency) {
+        const [storedIdempotency] = await tx
+          .select({
+            requestFingerprint: helpRequestIdempotency.requestFingerprint,
+            acknowledgementReference:
+              helpRequestIdempotency.acknowledgementReference,
+            acknowledgementStatus: helpRequestIdempotency.acknowledgementStatus,
+            acknowledgementMessage:
+              helpRequestIdempotency.acknowledgementMessage,
+            acknowledgedAt: helpRequestIdempotency.acknowledgedAt,
+          })
+          .from(helpRequestIdempotency)
+          .where(eq(helpRequestIdempotency.idempotencyKey, idempotencyKey))
           .for('update')
           .limit(1);
 
-        if (!operation) {
-          throw new NotFoundException('Emergency operation not found');
+        if (!storedIdempotency) {
+          throw new ConflictException('Unable to replay the submitted request');
         }
 
-        await tx.insert(helpRequests).values({
+        if (storedIdempotency.requestFingerprint !== requestFingerprint) {
+          throw new ConflictException(
+            'Idempotency key was used for another request',
+          );
+        }
+
+        return toStoredAcknowledgement(storedIdempotency);
+      }
+
+      const [operation] = await tx
+        .select({ id: emergencyOperations.id })
+        .from(emergencyOperations)
+        .where(
+          and(
+            eq(emergencyOperations.id, input.emergencyOperationId),
+            eq(emergencyOperations.countryCode, countryCode),
+            eq(emergencyOperations.status, 'ACTIVE'),
+          ),
+        )
+        .for('update')
+        .limit(1);
+
+      if (!operation) {
+        throw new NotFoundException('Emergency operation not found');
+      }
+
+      await tx
+        .insert(helpRequests)
+        .values({
           ...input,
           publicReference,
           status: 'PENDING_REVIEW',
+        })
+        .onConflictDoNothing({
+          target: [
+            helpRequests.emergencyOperationId,
+            helpRequests.requesterEmail,
+          ],
+          where: sql`${helpRequests.requesterEmail} IS NOT NULL`,
         });
 
-        return toAcknowledgement(acknowledgementReference, acknowledgedAt);
-      });
-    } catch (error) {
-      if (hasPostgresErrorCode(error, '23505')) {
-        return toAcknowledgement(acknowledgementReference, acknowledgedAt);
-      }
-
-      throw error;
-    }
+      return acknowledgement;
+    });
   }
 
   /** Returns one operation's pending-by-default queue with stable cursor pagination. */

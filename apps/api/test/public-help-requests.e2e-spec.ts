@@ -7,7 +7,7 @@ import type { App } from 'supertest/types';
 
 import { AppModule } from '../src/app.module';
 import { DatabaseService } from '../src/database/database.service';
-import { helpRequests } from '../src/database/schema';
+import { helpRequestIdempotency, helpRequests } from '../src/database/schema';
 import {
   authenticatedRequest,
   getTestAdminAccessToken,
@@ -83,6 +83,17 @@ function createRequestBody(
   overrides: Partial<typeof validRequest> = {},
 ) {
   return { emergencyOperationId, ...validRequest, ...overrides };
+}
+
+/** Starts a public submission with a fresh or specified idempotency key. */
+function submitPublicRequest(
+  app: INestApplication<App>,
+  countryCode: string,
+  idempotencyKey = randomUUID(),
+) {
+  return request(app.getHttpServer())
+    .post(`/public/countries/${countryCode}/help-requests`)
+    .set('Idempotency-Key', idempotencyKey);
 }
 
 let accessToken: string;
@@ -174,8 +185,7 @@ describe('Public help-request API (e2e)', () => {
     const organization = await createOrganization(app);
     const operation = await createOperation(app, organization.id, 'DE', true);
 
-    const response = await request(app.getHttpServer())
-      .post('/public/countries/de/help-requests')
+    const response = await submitPublicRequest(app, 'de')
       .send(createRequestBody(operation.id))
       .expect(201);
 
@@ -213,16 +223,13 @@ describe('Public help-request API (e2e)', () => {
     );
     const inactiveOperation = await createOperation(app, organization.id, 'DE');
 
-    const wrongCountry = await request(app.getHttpServer())
-      .post('/public/countries/de/help-requests')
+    const wrongCountry = await submitPublicRequest(app, 'de')
       .send(createRequestBody(foreignOperation.id))
       .expect(404);
-    const inactive = await request(app.getHttpServer())
-      .post('/public/countries/de/help-requests')
+    const inactive = await submitPublicRequest(app, 'de')
       .send(createRequestBody(inactiveOperation.id))
       .expect(404);
-    const missing = await request(app.getHttpServer())
-      .post('/public/countries/de/help-requests')
+    const missing = await submitPublicRequest(app, 'de')
       .send(createRequestBody(randomUUID()))
       .expect(404);
 
@@ -238,8 +245,7 @@ describe('Public help-request API (e2e)', () => {
     const organization = await createOrganization(app);
     const operation = await createOperation(app, organization.id, 'DE', true);
 
-    await request(app.getHttpServer())
-      .post('/public/countries/de/help-requests')
+    await submitPublicRequest(app, 'de')
       .send({ ...createRequestBody(operation.id), unknown: true })
       .expect(400)
       .expect((response) => {
@@ -252,8 +258,7 @@ describe('Public help-request API (e2e)', () => {
         });
       });
 
-    await request(app.getHttpServer())
-      .post('/public/countries/de/help-requests')
+    await submitPublicRequest(app, 'de')
       .send(createRequestBody(operation.id, { groupSize: 0 }))
       .expect(400);
   });
@@ -262,8 +267,7 @@ describe('Public help-request API (e2e)', () => {
     const organization = await createOrganization(app);
     const operation = await createOperation(app, organization.id, 'DE', true);
 
-    const first = await request(app.getHttpServer())
-      .post('/public/countries/de/help-requests')
+    const first = await submitPublicRequest(app, 'de')
       .send(createRequestBody(operation.id))
       .expect(201);
     const firstAcknowledgement = first.body as unknown as Acknowledgement;
@@ -280,8 +284,7 @@ describe('Public help-request API (e2e)', () => {
       .select()
       .from(helpRequests)
       .where(eq(helpRequests.id, createdRequest.id));
-    const duplicate = await request(app.getHttpServer())
-      .post('/public/countries/de/help-requests')
+    const duplicate = await submitPublicRequest(app, 'de')
       .send(
         createRequestBody(operation.id, {
           requesterEmail: ' PERSON@EXAMPLE.TEST ',
@@ -310,6 +313,119 @@ describe('Public help-request API (e2e)', () => {
       .where(eq(helpRequests.emergencyOperationId, operation.id));
     expect(stored).toHaveLength(1);
     expect(stored[0]).toEqual(storedBeforeDuplicate);
+  });
+
+  it('requires a valid idempotency key header', async () => {
+    const organization = await createOrganization(app);
+    const operation = await createOperation(app, organization.id, 'DE', true);
+
+    for (const idempotencyKey of [undefined, 'not-a-uuid']) {
+      const response = await request(app.getHttpServer())
+        .post('/public/countries/de/help-requests')
+        .set(
+          'Idempotency-Key',
+          idempotencyKey === undefined ? '' : idempotencyKey,
+        )
+        .send(createRequestBody(operation.id))
+        .expect(400);
+
+      const body = response.body as {
+        statusCode?: unknown;
+        message?: unknown;
+        errors?: unknown;
+      };
+      expect(body.statusCode).toBe(400);
+      expect(body.message).toBe('Request validation failed');
+      expect(Array.isArray(body.errors)).toBe(true);
+    }
+  });
+
+  it('replays the stored acknowledgement for the same key and normalized payload', async () => {
+    const organization = await createOrganization(app);
+    const operation = await createOperation(app, organization.id, 'DE', true);
+    const idempotencyKey = randomUUID();
+
+    const first = await submitPublicRequest(app, 'de', idempotencyKey)
+      .send(createRequestBody(operation.id))
+      .expect(201);
+    const retry = await submitPublicRequest(app, 'DE', idempotencyKey)
+      .send(
+        createRequestBody(operation.id, {
+          requesterEmail: ' PERSON@EXAMPLE.TEST ',
+        }),
+      )
+      .expect(201);
+
+    expect(retry.body).toEqual(first.body);
+    const storedRequests = await database.db
+      .select()
+      .from(helpRequests)
+      .where(eq(helpRequests.emergencyOperationId, operation.id));
+    const storedIdempotency = await database.db
+      .select()
+      .from(helpRequestIdempotency)
+      .where(eq(helpRequestIdempotency.idempotencyKey, idempotencyKey));
+    expect(storedRequests).toHaveLength(1);
+    expect(storedIdempotency).toHaveLength(1);
+  });
+
+  it('rejects reuse of an idempotency key with a changed request', async () => {
+    const organization = await createOrganization(app);
+    const operation = await createOperation(app, organization.id, 'DE', true);
+    const idempotencyKey = randomUUID();
+
+    await submitPublicRequest(app, 'de', idempotencyKey)
+      .send(createRequestBody(operation.id))
+      .expect(201);
+    await submitPublicRequest(app, 'de', idempotencyKey)
+      .send(createRequestBody(operation.id, { groupSize: 3 }))
+      .expect(409);
+  });
+
+  it('keeps one request when concurrent submissions share an idempotency key', async () => {
+    const organization = await createOrganization(app);
+    const operation = await createOperation(app, organization.id, 'DE', true);
+    const idempotencyKey = randomUUID();
+
+    const responses = await Promise.all([
+      submitPublicRequest(app, 'de', idempotencyKey)
+        .send(createRequestBody(operation.id))
+        .expect(201),
+      submitPublicRequest(app, 'de', idempotencyKey)
+        .send(createRequestBody(operation.id))
+        .expect(201),
+    ]);
+
+    expect(responses[0].body).toEqual(responses[1].body);
+    const storedRequests = await database.db
+      .select()
+      .from(helpRequests)
+      .where(eq(helpRequests.emergencyOperationId, operation.id));
+    expect(storedRequests).toHaveLength(1);
+  });
+
+  it('keeps one request for concurrent distinct keys with the same normalized email', async () => {
+    const organization = await createOrganization(app);
+    const operation = await createOperation(app, organization.id, 'DE', true);
+
+    await Promise.all([
+      submitPublicRequest(app, 'de')
+        .send(createRequestBody(operation.id))
+        .expect(201),
+      submitPublicRequest(app, 'de')
+        .send(
+          createRequestBody(operation.id, {
+            requesterEmail: ' PERSON@EXAMPLE.TEST ',
+          }),
+        )
+        .expect(201),
+    ]);
+
+    const storedRequests = await database.db
+      .select()
+      .from(helpRequests)
+      .where(eq(helpRequests.emergencyOperationId, operation.id));
+    expect(storedRequests).toHaveLength(1);
   });
 
   it('keeps existing protected routes protected', async () => {

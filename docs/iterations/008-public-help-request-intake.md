@@ -31,20 +31,20 @@ Public country page → active operation selection → help request
 
 Create a `help_requests` table.
 
-| Field | Rule |
-| --- | --- |
-| `id` | UUID primary key. |
-| `emergency_operation_id` | Required restrictive foreign key to `emergency_operations.id`; immutable after creation. |
-| `public_reference` | Required opaque, unique server-generated reference. It is not a credential and is not used for public lookup in this iteration. |
-| `requester_name` | Required trimmed text. |
-| `requester_phone` | Required trimmed text. No country-specific phone validation in this iteration. |
-| `requester_email` | Optional normalized email text: lowercase and trimmed when present. |
-| `group_size` | Required positive integer. |
-| `location_description` | Required trimmed text; accepts an address, postcode, locality, or landmark. No coordinates are required yet. |
-| `can_travel_independently` | Required boolean. |
-| `medical_support_needed` | Required boolean. |
-| `status` | Required `help_request_status`, created as `PENDING_REVIEW`. No transition command is introduced in this iteration. |
-| `created_at`, `updated_at` | Required timezone-aware audit timestamps. |
+| Field                      | Rule                                                                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                       | UUID primary key.                                                                                                               |
+| `emergency_operation_id`   | Required restrictive foreign key to `emergency_operations.id`; immutable after creation.                                        |
+| `public_reference`         | Required opaque, unique server-generated reference. It is not a credential and is not used for public lookup in this iteration. |
+| `requester_name`           | Required trimmed text.                                                                                                          |
+| `requester_phone`          | Required trimmed text. No country-specific phone validation in this iteration.                                                  |
+| `requester_email`          | Optional normalized email text: lowercase and trimmed when present.                                                             |
+| `group_size`               | Required positive integer.                                                                                                      |
+| `location_description`     | Required trimmed text; accepts an address, postcode, locality, or landmark. No coordinates are required yet.                    |
+| `can_travel_independently` | Required boolean.                                                                                                               |
+| `medical_support_needed`   | Required boolean.                                                                                                               |
+| `status`                   | Required `help_request_status`, created as `PENDING_REVIEW`. No transition command is introduced in this iteration.             |
+| `created_at`, `updated_at` | Required timezone-aware audit timestamps.                                                                                       |
 
 Define `help_request_status` with the planned lifecycle values:
 
@@ -81,10 +81,10 @@ Use strict Zod schemas, the project-owned validation pipe, UUID route validation
 
 ### Public endpoints
 
-| Endpoint | Purpose |
-| --- | --- |
-| `GET /public/countries/:countryCode/emergency-operations` | Return minimal details for active operations in the supplied country only. |
-| `POST /public/countries/:countryCode/help-requests` | Validate and submit one request for an active operation in the supplied country. |
+| Endpoint                                                  | Purpose                                                                          |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `GET /public/countries/:countryCode/emergency-operations` | Return minimal details for active operations in the supplied country only.       |
+| `POST /public/countries/:countryCode/help-requests`       | Validate and submit one request for an active operation in the supplied country. |
 
 The public operation list includes only `id`, operation code, name, country code, affected regions, and active status. It does not expose shelters, capacity, staffing, notes, internal identifiers beyond the operation ID needed for the form, or administrative contact data.
 
@@ -101,8 +101,8 @@ The public response is deliberately generic and does not disclose whether a supp
 
 ### Protected operator endpoint
 
-| Endpoint | Purpose |
-| --- | --- |
+| Endpoint                                               | Purpose                                                                  |
+| ------------------------------------------------------ | ------------------------------------------------------------------------ |
 | `GET /emergency-operations/:operationId/help-requests` | Return a paginated, stable, protected list of requests for an operation. |
 
 The protected queue is scoped through the operation's organization. It initially lists `PENDING_REVIEW` requests with the requester's minimum operational contact details and submission time. It must not expose cross-organization records.
@@ -181,7 +181,7 @@ The protected queue is scoped through the operation's organization. It initially
 - A new request and a duplicate normalized email both return `201` with a
   fresh ephemeral `acknowledgementReference`, `PENDING_REVIEW`, a current
   `acknowledgedAt` timestamp, and `Your request has been received. Emergency
-  staff will review it.` The acknowledgement reference is not persisted and
+staff will review it.` The acknowledgement reference is not persisted and
   is not a lookup credential. The persisted `publicReference` remains private
   to later controlled workflows. A duplicate does not read, create, or modify
   the existing request and does not disclose a prior submission.
@@ -260,38 +260,61 @@ Idempotency-Key: <UUID>
 - The public acknowledgement stays non-enumerating and never exposes an
   earlier help request.
 
-#### Transactional outbox and BullMQ handoff
+#### 4A. Database-backed idempotent public intake
 
-- One short PostgreSQL transaction creates a new help request, stores its
-  idempotency result, and creates one `help-request-submitted` outbox event
-  only for a newly created request. The event commits with the request, so an
-  API crash after commit cannot silently lose later asynchronous work.
-- A publisher sends committed pending events to the `help-request-events`
-  queue, then marks an event enqueued only after BullMQ accepts it. A Redis
-  outage leaves the event pending for a later retry.
-- The `help-request-submitted` job contains only `outboxEventId` and
-  `helpRequestId`, never requester PII. It uses stable job IDs derived from
-  outbox event IDs, three attempts, exponential backoff, and jitter.
-- Delivery is at-least-once, not exactly-once. Worker processing must be
-  idempotent. The first worker only marks an outbox event processed; it does
-  not assign shelters, reserve capacity, notify users, or change request
-  state.
+**Status:** Complete
 
-**Acceptance:**
+**Implementation record:**
 
-- Same key and same request create one logical request; a changed payload with
-  that key returns `409`.
-- Concurrent retries cannot create duplicate logical submissions, and each new
-  request has one committed outbox event.
-- A temporary Redis failure neither loses nor rejects a committed request.
-- Repeated job delivery does not repeat business effects.
-- Focused PostgreSQL and mocked queue/worker tests cover the behaviour; manual
-  inspection through Redis Insight confirms queued and processed jobs.
+- Public `POST /public/countries/:countryCode/help-requests` now requires an
+  `Idempotency-Key` UUID header. Missing or malformed keys return the existing
+  structured `400` validation response; the key is never accepted in the body.
+- After request validation and normalization, the service creates a canonical,
+  stable-order representation containing the normalized country and every
+  logical request field. A built-in Node SHA-256 hash is its request
+  fingerprint.
+- `help_request_idempotency` durably stores the key, fingerprint, complete
+  acknowledgement fields, acknowledgement timestamp, and creation timestamp.
+  The stored response can therefore be replayed exactly without reading the
+  original help request.
+- One short PostgreSQL transaction stores the idempotency result and, for a
+  new key, validates the active country operation and attempts the help-request
+  insert. Same key plus same fingerprint replays the original `201` response;
+  same key plus a different fingerprint returns `409`.
+- The existing partial normalized-email uniqueness rule remains an independent
+  database concurrency safeguard. A duplicate email under a different key
+  stores a generic acknowledgement but creates no second help request and
+  reveals no earlier submission.
+- Database uniqueness and transaction behaviour, rather than a process-local
+  lock, handle concurrent same-key retries and concurrent different-key
+  duplicate-email attempts.
 
-**Deferred:** Disposable Redis integration-test infrastructure, shelter
-matching and reservations, geocoding, notifications, QR/check-in, AI
-processing, operator workflow transitions, Bull Board, and operational
-monitoring UI.
+**Verification:** Focused unit tests cover normalized fingerprints,
+changed-payload conflict mapping, and exact acknowledgement replay. Isolated
+PostgreSQL HTTP tests cover header validation, initial creation, replay,
+changed payload, and both concurrent submission paths.
+
+#### 4B–4D. Transactional outbox and BullMQ handoff
+
+The durable outbox and BullMQ work remains planned after 4A:
+
+- A future short transaction will create one `help-request-submitted` outbox
+  event only for a newly created request and commit it with the request and its
+  idempotency result. An API crash after commit must not lose later work.
+- A publisher will send committed pending events to `help-request-events` and
+  mark them enqueued only after BullMQ accepts them. Redis outages must leave
+  events pending for later retry.
+- A `help-request-submitted` job will contain only `outboxEventId` and
+  `helpRequestId`, never requester PII. Stable outbox-derived job IDs, three
+  attempts, exponential backoff, and jitter will reduce duplicate jobs.
+- Delivery will be at-least-once, not exactly-once. The first idempotent worker
+  will only mark an outbox event processed; it will not assign shelters,
+  reserve capacity, notify users, or change request state.
+
+**Deferred:** Outbox table and publisher/worker implementation, disposable
+Redis integration-test infrastructure, shelter matching and reservations,
+geocoding, notifications, QR/check-in, AI processing, operator workflow
+transitions, Bull Board, and operational monitoring UI.
 
 ### 5. Public intake and operator queue UI
 

@@ -1,9 +1,14 @@
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 
 import type { DatabaseService } from '../database/database.service';
-import { HelpRequestsService } from './help-requests.service';
+import { createPublicHelpRequestSchema } from './help-requests.dto';
+import {
+  createPublicHelpRequestFingerprint,
+  HelpRequestsService,
+} from './help-requests.service';
 
 const operationId = 'b740fd73-661c-435e-ba99-ad7b1ce807a9';
+const idempotencyKey = 'c5fa605d-4e42-4b78-9b9e-bfa8333d48bf';
 const requestInput = {
   emergencyOperationId: operationId,
   requesterName: 'Requesting Person',
@@ -15,33 +20,61 @@ const requestInput = {
   medicalSupportNeeded: false,
 };
 
-/** Creates transaction mocks for focused public help-request service tests. */
-function createDatabaseMock(options: {
+type StoredAcknowledgement = {
+  requestFingerprint: string;
+  acknowledgementReference: string;
+  acknowledgementStatus: string;
+  acknowledgementMessage: string;
+  acknowledgedAt: Date;
+};
+
+/** Creates transaction mocks for focused idempotent public-submission tests. */
+function createPublicRequestDatabaseMock(options: {
+  createdIdempotency?: boolean;
   operation?: { id: string };
-  insertError?: Error;
+  storedAcknowledgement?: StoredAcknowledgement;
 }) {
-  const values = jest.fn(() =>
-    options.insertError
-      ? Promise.reject(options.insertError)
-      : Promise.resolve(undefined),
-  );
-  const insert = jest.fn(() => ({ values }));
+  const requestOnConflictDoNothing = jest.fn().mockResolvedValue(undefined);
+  const requestValues = jest.fn(() => ({
+    onConflictDoNothing: requestOnConflictDoNothing,
+  }));
+  const idempotencyReturning = jest
+    .fn()
+    .mockResolvedValue(
+      options.createdIdempotency === false ? [] : [{ idempotencyKey }],
+    );
+  const idempotencyOnConflictDoNothing = jest.fn(() => ({
+    returning: idempotencyReturning,
+  }));
+  const idempotencyValues = jest.fn(() => ({
+    onConflictDoNothing: idempotencyOnConflictDoNothing,
+  }));
+  const insert = jest
+    .fn()
+    .mockReturnValueOnce({ values: idempotencyValues })
+    .mockReturnValueOnce({ values: requestValues });
   const limit = jest
     .fn()
-    .mockResolvedValue(options.operation ? [options.operation] : []);
+    .mockResolvedValue(
+      options.createdIdempotency === false
+        ? options.storedAcknowledgement
+          ? [options.storedAcknowledgement]
+          : []
+        : options.operation
+          ? [options.operation]
+          : [],
+    );
   const forUpdate = jest.fn(() => ({ limit }));
   const where = jest.fn(() => ({ for: forUpdate }));
   const from = jest.fn(() => ({ where }));
   const select = jest.fn(() => ({ from }));
   const transaction = jest.fn(async (work: (tx: unknown) => Promise<unknown>) =>
-    work({ select, insert }),
+    work({ insert, select }),
   );
 
   return {
-    database: {
-      transaction,
-    } as unknown as DatabaseService,
-    values,
+    database: { transaction } as unknown as DatabaseService,
+    requestOnConflictDoNothing,
   };
 }
 
@@ -65,23 +98,17 @@ function createQueueDatabaseMock(records: Array<Record<string, unknown>>) {
 }
 
 describe('HelpRequestsService', () => {
-  it.each(['missing', 'inactive', 'country-mismatched'])(
-    'returns the same public-safe not-found response for a %s operation',
-    async () => {
-      const mock = createDatabaseMock({});
-      const service = new HelpRequestsService(mock.database);
-
-      await expect(
-        service.createPublicRequest('DE', requestInput),
-      ).rejects.toEqual(new NotFoundException('Emergency operation not found'));
-    },
-  );
-
-  it('stores a valid request as pending review with a server-generated reference', async () => {
-    const mock = createDatabaseMock({ operation: { id: operationId } });
+  it('creates a pending request and durable acknowledgement for a new key', async () => {
+    const mock = createPublicRequestDatabaseMock({
+      operation: { id: operationId },
+    });
     const service = new HelpRequestsService(mock.database);
 
-    const response = await service.createPublicRequest('DE', requestInput);
+    const response = await service.createPublicRequest(
+      'DE',
+      requestInput,
+      idempotencyKey,
+    );
 
     expect(response).toMatchObject({
       status: 'PENDING_REVIEW',
@@ -89,36 +116,84 @@ describe('HelpRequestsService', () => {
         'Your request has been received. Emergency staff will review it.',
     });
     expect(response.acknowledgementReference).toMatch(/^[A-Za-z0-9_-]{24}$/);
-    expect(response.acknowledgedAt).toBeInstanceOf(Date);
-    const insertedValues = mock.values.mock.calls[0]?.[0] as unknown as Record<
-      string,
-      unknown
-    >;
-    expect(insertedValues).toMatchObject({
-      ...requestInput,
-      status: 'PENDING_REVIEW',
-    });
-    expect(insertedValues.publicReference).toMatch(/^[A-Za-z0-9_-]{24}$/);
+    expect(mock.requestOnConflictDoNothing).toHaveBeenCalledTimes(1);
   });
 
-  it('returns a generic acknowledgement when the normalized email already exists', async () => {
-    const mock = createDatabaseMock({
-      operation: { id: operationId },
-      insertError: Object.assign(new Error('duplicate email'), {
-        code: '23505',
-      }),
+  it('returns the public-safe not-found response when a new key targets an unavailable operation', async () => {
+    const mock = createPublicRequestDatabaseMock({});
+    const service = new HelpRequestsService(mock.database);
+
+    await expect(
+      service.createPublicRequest('DE', requestInput, idempotencyKey),
+    ).rejects.toEqual(new NotFoundException('Emergency operation not found'));
+  });
+
+  it('replays the exact stored acknowledgement for a matching key and fingerprint', async () => {
+    const acknowledgedAt = new Date('2026-11-01T10:00:00.000Z');
+    const storedAcknowledgement: StoredAcknowledgement = {
+      requestFingerprint: createPublicHelpRequestFingerprint(
+        'DE',
+        requestInput,
+      ),
+      acknowledgementReference: 'stored-acknowledgement',
+      acknowledgementStatus: 'PENDING_REVIEW',
+      acknowledgementMessage:
+        'Your request has been received. Emergency staff will review it.',
+      acknowledgedAt,
+    };
+    const mock = createPublicRequestDatabaseMock({
+      createdIdempotency: false,
+      storedAcknowledgement,
     });
     const service = new HelpRequestsService(mock.database);
 
-    const response = await service.createPublicRequest('DE', requestInput);
-
-    expect(response).toMatchObject({
+    await expect(
+      service.createPublicRequest('DE', requestInput, idempotencyKey),
+    ).resolves.toEqual({
+      acknowledgementReference: storedAcknowledgement.acknowledgementReference,
       status: 'PENDING_REVIEW',
-      message:
-        'Your request has been received. Emergency staff will review it.',
+      acknowledgedAt,
+      message: storedAcknowledgement.acknowledgementMessage,
     });
-    expect(response.acknowledgementReference).toMatch(/^[A-Za-z0-9_-]{24}$/);
-    expect(response.acknowledgedAt).toBeInstanceOf(Date);
+  });
+
+  it('rejects a reused key with a different request fingerprint', async () => {
+    const mock = createPublicRequestDatabaseMock({
+      createdIdempotency: false,
+      storedAcknowledgement: {
+        requestFingerprint: 'different-fingerprint',
+        acknowledgementReference: 'stored-acknowledgement',
+        acknowledgementStatus: 'PENDING_REVIEW',
+        acknowledgementMessage:
+          'Your request has been received. Emergency staff will review it.',
+        acknowledgedAt: new Date('2026-11-01T10:00:00.000Z'),
+      },
+    });
+    const service = new HelpRequestsService(mock.database);
+
+    await expect(
+      service.createPublicRequest('DE', requestInput, idempotencyKey),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('creates equal fingerprints for normalized-equivalent requests', () => {
+    const normalizedInput = createPublicHelpRequestSchema.parse({
+      ...requestInput,
+      requesterEmail: ' PERSON@EXAMPLE.TEST ',
+    });
+
+    expect(createPublicHelpRequestFingerprint('DE', requestInput)).toBe(
+      createPublicHelpRequestFingerprint('DE', normalizedInput),
+    );
+  });
+
+  it('changes the fingerprint when a logical request field changes', () => {
+    expect(createPublicHelpRequestFingerprint('DE', requestInput)).not.toBe(
+      createPublicHelpRequestFingerprint('DE', {
+        ...requestInput,
+        groupSize: 3,
+      }),
+    );
   });
 
   it('maps a limited queue result and returns a cursor for the next page', async () => {

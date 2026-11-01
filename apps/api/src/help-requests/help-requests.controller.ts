@@ -1,15 +1,20 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post } from '@nestjs/common';
 
 import { Public } from '../auth/public-route.decorator';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import {
   countryCodeSchema,
   createPublicHelpRequestSchema,
+  idempotencyKeySchema,
   type CreatePublicHelpRequestRequest,
   type PublicEmergencyOperationResponse,
   type PublicHelpRequestAcknowledgement,
 } from './help-requests.dto';
 import { HelpRequestsService } from './help-requests.service';
+
+const idempotencyKeyValidationPipe = new ZodValidationPipe(
+  idempotencyKeySchema,
+);
 
 @Controller('public/countries/:countryCode')
 @Public()
@@ -32,7 +37,12 @@ export class HelpRequestsController {
     countryCode: string,
     @Body(new ZodValidationPipe(createPublicHelpRequestSchema))
     body: CreatePublicHelpRequestRequest,
+    @Headers('idempotency-key') rawIdempotencyKey: unknown,
   ): Promise<PublicHelpRequestAcknowledgement> {
-    return this.service.createPublicRequest(countryCode, body);
+    const idempotencyKey = idempotencyKeyValidationPipe.transform(
+      rawIdempotencyKey,
+    ) as string;
+
+    return this.service.createPublicRequest(countryCode, body, idempotencyKey);
   }
 }
