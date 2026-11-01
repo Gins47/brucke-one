@@ -222,19 +222,93 @@ The protected queue is scoped through the operation's organization. It initially
 - The queue is read-only. Assignment, shelter matching, reservations, status
   transitions, geocoding, QR lookup, and notifications remain deferred.
 
-### 4. Public and operator UI
+### 4. Idempotent intake and durable BullMQ handoff
 
+Make public help-request submission safe against browser retries, network
+timeouts, and concurrent duplicate submissions, while creating a reliable
+asynchronous handoff for later processing.
+
+#### Source of truth and local Redis
+
+- PostgreSQL remains the source of truth. A valid help request is accepted
+  only after its database transaction commits; Redis/BullMQ is never the only
+  location of an accepted request.
+- A Redis outage must not reject a valid PostgreSQL-backed request.
+- The existing local Docker Compose setup already provides Redis 8 and Redis
+  Insight. This checkpoint consumes `REDIS_URL` and does not modify Compose
+  services. Redis Insight is only a local development inspection tool.
+- Disposable Redis test infrastructure is deferred. Automated database tests
+  continue to use isolated PostgreSQL only.
+
+#### Idempotency contract
+
+`POST /public/countries/:countryCode/help-requests` requires:
+
+```http
+Idempotency-Key: <UUID>
+```
+
+- The client creates one UUID per logical submission and reuses it for network
+  retries.
+- The same key and the same normalized request payload return the originally
+  stored acknowledgement response with `201 Created`.
+- The same key and a different normalized payload return `409 Conflict`.
+- PostgreSQL stores idempotency records durably. A SHA-256 fingerprint is
+  calculated from a canonical normalized request representation.
+- Normalized-email uniqueness remains an independent business rule and
+  database-level concurrency safeguard.
+- The public acknowledgement stays non-enumerating and never exposes an
+  earlier help request.
+
+#### Transactional outbox and BullMQ handoff
+
+- One short PostgreSQL transaction creates a new help request, stores its
+  idempotency result, and creates one `help-request-submitted` outbox event
+  only for a newly created request. The event commits with the request, so an
+  API crash after commit cannot silently lose later asynchronous work.
+- A publisher sends committed pending events to the `help-request-events`
+  queue, then marks an event enqueued only after BullMQ accepts it. A Redis
+  outage leaves the event pending for a later retry.
+- The `help-request-submitted` job contains only `outboxEventId` and
+  `helpRequestId`, never requester PII. It uses stable job IDs derived from
+  outbox event IDs, three attempts, exponential backoff, and jitter.
+- Delivery is at-least-once, not exactly-once. Worker processing must be
+  idempotent. The first worker only marks an outbox event processed; it does
+  not assign shelters, reserve capacity, notify users, or change request
+  state.
+
+**Acceptance:**
+
+- Same key and same request create one logical request; a changed payload with
+  that key returns `409`.
+- Concurrent retries cannot create duplicate logical submissions, and each new
+  request has one committed outbox event.
+- A temporary Redis failure neither loses nor rejects a committed request.
+- Repeated job delivery does not repeat business effects.
+- Focused PostgreSQL and mocked queue/worker tests cover the behaviour; manual
+  inspection through Redis Insight confirms queued and processed jobs.
+
+**Deferred:** Disposable Redis integration-test infrastructure, shelter
+matching and reservations, geocoding, notifications, QR/check-in, AI
+processing, operator workflow transitions, Bull Board, and operational
+monitoring UI.
+
+### 5. Public intake and operator queue UI
+
+- Consume the existing public intake and protected queue APIs only.
 - Implement the public mobile-first request form and confirmation state.
 - Implement the protected operator queue in the operation workflow.
 - Add focused frontend tests for one/multiple/no active operations, validation, generic success/duplicate handling, session separation, queue rendering, and responsive behaviour.
 
 **Acceptance:** A public user can request help without login; an operator can see the submitted request; neither UI implies placement is confirmed.
 
-### 5. Final verification and documentation
+### 6. Final verification and documentation
 
 - Review schema, migration, public exposure, API contracts, queue scope, UI states, and documentation against this iteration.
-- Run relevant isolated database tests, API tests, frontend tests, build, lint, Drizzle check, and `git diff --check`.
-- Record verified public-endpoint limits, personal-data handling, and deferred matching/reservation work accurately.
+- Run relevant isolated database tests, API tests, frontend tests, build, lint,
+  Drizzle check, and `git diff --check`.
+- Document the local Redis/BullMQ setup, known limitations, and accepted
+  deferred work accurately.
 
 **Acceptance:** Intake is safe, narrow, tested, and documented; no shelter capacity or assignment is changed by a request.
 
