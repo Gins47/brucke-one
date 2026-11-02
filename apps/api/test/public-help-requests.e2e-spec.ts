@@ -96,6 +96,19 @@ function submitPublicRequest(
     .set('Idempotency-Key', idempotencyKey);
 }
 
+/** Verifies the project-standard structured validation response. */
+function expectStructuredValidationError(body: unknown): void {
+  const response = body as {
+    statusCode?: unknown;
+    message?: unknown;
+    errors?: unknown;
+  };
+
+  expect(response.statusCode).toBe(400);
+  expect(response.message).toBe('Request validation failed');
+  expect(Array.isArray(response.errors)).toBe(true);
+}
+
 let accessToken: string;
 
 describe('Public help-request API (e2e)', () => {
@@ -315,29 +328,31 @@ describe('Public help-request API (e2e)', () => {
     expect(stored[0]).toEqual(storedBeforeDuplicate);
   });
 
-  it('requires a valid idempotency key header', async () => {
+  it('rejects empty or malformed idempotency key header values', async () => {
     const organization = await createOrganization(app);
     const operation = await createOperation(app, organization.id, 'DE', true);
 
-    for (const idempotencyKey of [undefined, 'not-a-uuid']) {
+    for (const idempotencyKey of ['', 'not-a-uuid']) {
       const response = await request(app.getHttpServer())
         .post('/public/countries/de/help-requests')
-        .set(
-          'Idempotency-Key',
-          idempotencyKey === undefined ? '' : idempotencyKey,
-        )
+        .set('Idempotency-Key', idempotencyKey)
         .send(createRequestBody(operation.id))
         .expect(400);
 
-      const body = response.body as {
-        statusCode?: unknown;
-        message?: unknown;
-        errors?: unknown;
-      };
-      expect(body.statusCode).toBe(400);
-      expect(body.message).toBe('Request validation failed');
-      expect(Array.isArray(body.errors)).toBe(true);
+      expectStructuredValidationError(response.body);
     }
+  });
+
+  it('rejects a missing idempotency key header', async () => {
+    const organization = await createOrganization(app);
+    const operation = await createOperation(app, organization.id, 'DE', true);
+
+    const response = await request(app.getHttpServer())
+      .post('/public/countries/de/help-requests')
+      .send(createRequestBody(operation.id))
+      .expect(400);
+
+    expectStructuredValidationError(response.body);
   });
 
   it('replays the stored acknowledgement for the same key and normalized payload', async () => {

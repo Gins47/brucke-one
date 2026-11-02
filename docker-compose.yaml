@@ -2,7 +2,7 @@ services:
   redis:
     image: redis:8.10.3-alpine
     ports:
-      - "127.0.0.1:6379:6379"
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -11,7 +11,7 @@ services:
   redis-insight:
     image: redis/redisinsight:latest
     ports:
-      - "127.0.0.1:5540:5540"
+      - "5540:5540"
     depends_on:
       redis:
         condition: service_healthy

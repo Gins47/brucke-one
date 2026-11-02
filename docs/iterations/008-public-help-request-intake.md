@@ -178,13 +178,17 @@ The protected queue is scoped through the operation's organization. It initially
   `PENDING_REVIEW` request with a 144-bit opaque server-generated reference.
   Missing, inactive, and country-mismatched operations all return the same
   public-safe `404 Emergency operation not found` response.
-- A new request and a duplicate normalized email both return `201` with a
-  fresh ephemeral `acknowledgementReference`, `PENDING_REVIEW`, a current
-  `acknowledgedAt` timestamp, and `Your request has been received. Emergency
-staff will review it.` The acknowledgement reference is not persisted and
-  is not a lookup credential. The persisted `publicReference` remains private
-  to later controlled workflows. A duplicate does not read, create, or modify
-  the existing request and does not disclose a prior submission.
+- At Checkpoint 2, a new request and a duplicate normalized email both
+  returned `201` with a fresh ephemeral `acknowledgementReference`,
+  `PENDING_REVIEW`, a current `acknowledgedAt` timestamp, and `Your request
+  has been received. Emergency staff will review it.` That acknowledgement
+  reference was not persisted then. It is never a public lookup credential or
+  the help request's internal persisted `publicReference`, which remains
+  private to later controlled workflows. From Checkpoint 4A, the complete
+  acknowledgement response is stored in `help_request_idempotency` only to
+  replay a retry with the same `Idempotency-Key`; it cannot be used to look up
+  a help request or reveal whether an email was previously submitted. A
+  duplicate does not read, create, or modify the existing request.
 - Focused service and isolated PostgreSQL HTTP tests cover public listing,
   request validation, country and lifecycle checks, duplicate-safe
   acknowledgement, and continued protection of existing API routes.
