@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import {
   ConflictException,
@@ -13,6 +13,7 @@ import {
   helpRequestIdempotency,
   helpRequests,
   operationAffectedRegions,
+  outboxEvents,
 } from '../database/schema';
 import type {
   CreatePublicHelpRequestRequest,
@@ -27,6 +28,18 @@ import { encodeHelpRequestQueueCursor } from './help-requests.dto';
 /** Generates an opaque 144-bit value for a stored or acknowledgement reference. */
 function createOpaqueReference(): string {
   return randomBytes(18).toString('base64url');
+}
+
+/** Builds the identifier-only event stored for one newly created help request. */
+function createHelpRequestSubmittedEvent(helpRequestId: string) {
+  const outboxEventId = randomUUID();
+
+  return {
+    id: outboxEventId,
+    eventType: 'help-request-submitted',
+    helpRequestId,
+    payload: { outboxEventId, helpRequestId },
+  };
 }
 
 /** Builds the deliberately generic acknowledgement returned for accepted submissions. */
@@ -257,7 +270,7 @@ export class HelpRequestsService {
         throw new NotFoundException('Emergency operation not found');
       }
 
-      await tx
+      const [createdHelpRequest] = await tx
         .insert(helpRequests)
         .values({
           ...input,
@@ -270,7 +283,14 @@ export class HelpRequestsService {
             helpRequests.requesterEmail,
           ],
           where: sql`${helpRequests.requesterEmail} IS NOT NULL`,
-        });
+        })
+        .returning({ id: helpRequests.id });
+
+      if (createdHelpRequest) {
+        await tx
+          .insert(outboxEvents)
+          .values(createHelpRequestSubmittedEvent(createdHelpRequest.id));
+      }
 
       return acknowledgement;
     });

@@ -1,13 +1,17 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
 import { AppModule } from '../src/app.module';
 import { DatabaseService } from '../src/database/database.service';
-import { helpRequestIdempotency, helpRequests } from '../src/database/schema';
+import {
+  helpRequestIdempotency,
+  helpRequests,
+  outboxEvents,
+} from '../src/database/schema';
 import {
   authenticatedRequest,
   getTestAdminAccessToken,
@@ -197,8 +201,9 @@ describe('Public help-request API (e2e)', () => {
   it('accepts a valid unauthenticated request for an active country operation', async () => {
     const organization = await createOrganization(app);
     const operation = await createOperation(app, organization.id, 'DE', true);
+    const idempotencyKey = randomUUID();
 
-    const response = await submitPublicRequest(app, 'de')
+    const response = await submitPublicRequest(app, 'de', idempotencyKey)
       .send(createRequestBody(operation.id))
       .expect(201);
 
@@ -224,6 +229,29 @@ describe('Public help-request API (e2e)', () => {
     expect(stored.publicReference).not.toBe(
       acknowledgement.acknowledgementReference,
     );
+    const [idempotency] = await database.db
+      .select()
+      .from(helpRequestIdempotency)
+      .where(eq(helpRequestIdempotency.idempotencyKey, idempotencyKey));
+    const requestEvents = await database.db
+      .select()
+      .from(outboxEvents)
+      .where(eq(outboxEvents.helpRequestId, stored.id));
+    expect(requestEvents).toHaveLength(1);
+    const [outboxEvent] = requestEvents;
+    expect(idempotency).toBeDefined();
+    expect(outboxEvent).toMatchObject({
+      eventType: 'help-request-submitted',
+      helpRequestId: stored.id,
+      enqueuedAt: null,
+      processedAt: null,
+      attemptCount: 0,
+      lastError: null,
+    });
+    expect(outboxEvent.payload).toEqual({
+      outboxEventId: outboxEvent.id,
+      helpRequestId: stored.id,
+    });
   });
 
   it('returns the same public-safe not-found response for wrong-country and inactive operations', async () => {
@@ -326,6 +354,11 @@ describe('Public help-request API (e2e)', () => {
       .where(eq(helpRequests.emergencyOperationId, operation.id));
     expect(stored).toHaveLength(1);
     expect(stored[0]).toEqual(storedBeforeDuplicate);
+    const storedEvents = await database.db
+      .select()
+      .from(outboxEvents)
+      .where(eq(outboxEvents.helpRequestId, stored[0].id));
+    expect(storedEvents).toHaveLength(1);
   });
 
   it('rejects empty or malformed idempotency key header values', async () => {
@@ -382,6 +415,62 @@ describe('Public help-request API (e2e)', () => {
       .where(eq(helpRequestIdempotency.idempotencyKey, idempotencyKey));
     expect(storedRequests).toHaveLength(1);
     expect(storedIdempotency).toHaveLength(1);
+    const storedEvents = await database.db
+      .select()
+      .from(outboxEvents)
+      .where(eq(outboxEvents.helpRequestId, storedRequests[0].id));
+    expect(storedEvents).toHaveLength(1);
+  });
+
+  it('rolls back a submission when the outbox event insert fails', async () => {
+    const organization = await createOrganization(app);
+    const operation = await createOperation(app, organization.id, 'DE', true);
+    const idempotencyKey = randomUUID();
+    const eventsBefore = await database.db.select().from(outboxEvents);
+
+    try {
+      await database.db.execute(sql`
+        CREATE FUNCTION reject_help_request_outbox_event()
+        RETURNS trigger AS $$
+        BEGIN
+          RAISE EXCEPTION 'forced outbox insert failure';
+        END;
+        $$ LANGUAGE plpgsql;
+      `);
+      await database.db.execute(sql`
+        CREATE TRIGGER reject_help_request_outbox_event
+        BEFORE INSERT ON outbox_events
+        FOR EACH ROW EXECUTE FUNCTION reject_help_request_outbox_event();
+      `);
+      await submitPublicRequest(app, 'de', idempotencyKey)
+        .send(
+          createRequestBody(operation.id, {
+            requesterEmail: 'atomic@example.test',
+          }),
+        )
+        .expect(500);
+    } finally {
+      await database.db.execute(sql`
+        DROP TRIGGER IF EXISTS reject_help_request_outbox_event ON outbox_events;
+      `);
+      await database.db.execute(sql`
+        DROP FUNCTION IF EXISTS reject_help_request_outbox_event();
+      `);
+    }
+
+    const requests = await database.db
+      .select()
+      .from(helpRequests)
+      .where(eq(helpRequests.requesterEmail, 'atomic@example.test'));
+    const idempotencyRecords = await database.db
+      .select()
+      .from(helpRequestIdempotency)
+      .where(eq(helpRequestIdempotency.idempotencyKey, idempotencyKey));
+    const eventsAfter = await database.db.select().from(outboxEvents);
+
+    expect(requests).toHaveLength(0);
+    expect(idempotencyRecords).toHaveLength(0);
+    expect(eventsAfter).toHaveLength(eventsBefore.length);
   });
 
   it('rejects reuse of an idempotency key with a changed request', async () => {

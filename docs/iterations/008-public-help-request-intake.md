@@ -298,13 +298,27 @@ changed-payload conflict mapping, and exact acknowledgement replay. Isolated
 PostgreSQL HTTP tests cover header validation, initial creation, replay,
 changed payload, and both concurrent submission paths.
 
-#### 4B–4D. Transactional outbox and BullMQ handoff
+#### 4B. Transactional outbox persistence
 
-The durable outbox and BullMQ work remains planned after 4A:
+**Status:** Complete
 
-- A future short transaction will create one `help-request-submitted` outbox
-  event only for a newly created request and commit it with the request and its
-  idempotency result. An API crash after commit must not lose later work.
+**Implementation record:**
+
+- A new help request, its idempotency result, and exactly one
+  `help-request-submitted` outbox event now commit or roll back in the same
+  short PostgreSQL transaction. Replays and duplicate-email acknowledgements
+  that create no help request create no event.
+- `outbox_events` stores an identifier-only payload with `outboxEventId` and
+  `helpRequestId`; it never stores requester data or other PII. Events are
+  persisted only and are not yet published.
+- Focused isolated PostgreSQL tests verify first creation, replay,
+  duplicate-email acknowledgement, and an induced outbox-insert failure that
+  leaves no partial help request, idempotency record, or event committed.
+
+#### 4C–4D. BullMQ handoff and worker behaviour
+
+Publishing and worker behaviour remain planned after 4B:
+
 - A publisher will send committed pending events to `help-request-events` and
   mark them enqueued only after BullMQ accepts them. Redis outages must leave
   events pending for later retry.
@@ -315,10 +329,10 @@ The durable outbox and BullMQ work remains planned after 4A:
   will only mark an outbox event processed; it will not assign shelters,
   reserve capacity, notify users, or change request state.
 
-**Deferred:** Outbox table and publisher/worker implementation, disposable
-Redis integration-test infrastructure, shelter matching and reservations,
-geocoding, notifications, QR/check-in, AI processing, operator workflow
-transitions, Bull Board, and operational monitoring UI.
+**Deferred:** BullMQ publishing and worker implementation, disposable Redis
+integration-test infrastructure, shelter matching and reservations, geocoding,
+notifications, QR/check-in, AI processing, operator workflow transitions,
+Bull Board, and operational monitoring UI.
 
 ### 5. Public intake and operator queue UI
 

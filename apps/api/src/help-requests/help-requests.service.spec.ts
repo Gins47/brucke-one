@@ -34,10 +34,16 @@ function createPublicRequestDatabaseMock(options: {
   operation?: { id: string };
   storedAcknowledgement?: StoredAcknowledgement;
 }) {
-  const requestOnConflictDoNothing = jest.fn().mockResolvedValue(undefined);
+  const helpRequestReturning = jest
+    .fn()
+    .mockResolvedValue([{ id: operationId }]);
+  const requestOnConflictDoNothing = jest.fn(() => ({
+    returning: helpRequestReturning,
+  }));
   const requestValues = jest.fn(() => ({
     onConflictDoNothing: requestOnConflictDoNothing,
   }));
+  const outboxValues = jest.fn().mockResolvedValue(undefined);
   const idempotencyReturning = jest
     .fn()
     .mockResolvedValue(
@@ -52,7 +58,8 @@ function createPublicRequestDatabaseMock(options: {
   const insert = jest
     .fn()
     .mockReturnValueOnce({ values: idempotencyValues })
-    .mockReturnValueOnce({ values: requestValues });
+    .mockReturnValueOnce({ values: requestValues })
+    .mockReturnValueOnce({ values: outboxValues });
   const limit = jest
     .fn()
     .mockResolvedValue(
