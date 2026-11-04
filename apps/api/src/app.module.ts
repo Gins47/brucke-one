@@ -8,6 +8,7 @@ import { EmergencyOperationsModule } from './emergency-operations/emergency-oper
 import { HelpRequestsModule } from './help-requests/help-requests.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { OperationAffectedRegionsModule } from './operation-affected-regions/operation-affected-regions.module';
+import { OutboxPublisherModule } from './outbox-publisher/outbox-publisher.module';
 import { SheltersModule } from './shelters/shelters.module';
 import { ShelterActivationAvailabilityModule } from './shelter-activation-availability/shelter-activation-availability.module';
 import { ShelterActivationsModule } from './shelter-activations/shelter-activations.module';
@@ -21,6 +22,7 @@ import { ShelterActivationsModule } from './shelter-activations/shelter-activati
     OperationAffectedRegionsModule,
     EmergencyOperationsModule,
     HelpRequestsModule,
+    OutboxPublisherModule,
     SheltersModule,
     ShelterActivationsModule,
     ShelterActivationAvailabilityModule,

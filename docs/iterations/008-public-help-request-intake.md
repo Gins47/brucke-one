@@ -181,7 +181,7 @@ The protected queue is scoped through the operation's organization. It initially
 - At Checkpoint 2, a new request and a duplicate normalized email both
   returned `201` with a fresh ephemeral `acknowledgementReference`,
   `PENDING_REVIEW`, a current `acknowledgedAt` timestamp, and `Your request
-  has been received. Emergency staff will review it.` That acknowledgement
+has been received. Emergency staff will review it.` That acknowledgement
   reference was not persisted then. It is never a public lookup credential or
   the help request's internal persisted `publicReference`, which remains
   private to later controlled workflows. From Checkpoint 4A, the complete
@@ -203,7 +203,8 @@ The protected queue is scoped through the operation's organization. It initially
 
 **Acceptance:** An authorized operator can see only the pending requests for their operation.
 
-**Status:** Complete
+**Status:** Automated verification complete; manual Redis Insight verification
+pending
 
 **Implementation record:**
 
@@ -315,24 +316,41 @@ changed payload, and both concurrent submission paths.
   duplicate-email acknowledgement, and an induced outbox-insert failure that
   leaves no partial help request, idempotency record, or event committed.
 
-#### 4C–4D. BullMQ handoff and worker behaviour
+#### 4C. BullMQ outbox publisher
 
-Publishing and worker behaviour remain planned after 4B:
+**Status:** Complete
 
-- A publisher will send committed pending events to `help-request-events` and
-  mark them enqueued only after BullMQ accepts them. Redis outages must leave
-  events pending for later retry.
-- A `help-request-submitted` job will contain only `outboxEventId` and
-  `helpRequestId`, never requester PII. Stable outbox-derived job IDs, three
-  attempts, exponential backoff, and jitter will reduce duplicate jobs.
-- Delivery will be at-least-once, not exactly-once. The first idempotent worker
-  will only mark an outbox event processed; it will not assign shelters,
-  reserve capacity, notify users, or change request state.
+**Implementation record:**
 
-**Deferred:** BullMQ publishing and worker implementation, disposable Redis
-integration-test infrastructure, shelter matching and reservations, geocoding,
-notifications, QR/check-in, AI processing, operator workflow transitions,
-Bull Board, and operational monitoring UI.
+- `REDIS_URL` is required when the API starts. A local five-second publisher
+  interval reads a bounded, creation-ordered batch of pending
+  `help-request-submitted` events and sends each to `help-request-events`.
+  Job data contains only `outboxEventId` and `helpRequestId`.
+- Jobs use the stable ID `outbox-<outboxEventId>`, three attempts, exponential
+  backoff with modest jitter, and retained completed/failed jobs for local
+  Redis Insight inspection. Publication marks `enqueued_at` only after BullMQ
+  accepts the job; it never sets `processed_at`.
+- If Redis is temporarily unavailable, the event remains pending, its attempt
+  count is incremented, and only a generic safe diagnostic is stored.
+  A redacted warning identifies the outbox event without logging Redis
+  credentials. Publication is at-least-once; it makes no exactly-once claim.
+- Manual Redis Insight verification is still pending. For that check, set
+  `REDIS_URL` to the existing local Redis endpoint before starting the API,
+  submit a request with a fresh idempotency key, then use Redis Insight to
+  inspect identifier-only job data, `enqueued_at`, and a still-null
+  `processed_at` value.
+
+#### 4D. BullMQ worker behaviour
+
+Worker processing remains deferred after 4C:
+
+- The first idempotent worker will mark an outbox event processed. It will not
+  assign shelters, reserve capacity, notify users, or change request state.
+
+**Deferred:** Worker implementation, disposable Redis integration-test
+infrastructure, production job retention/cleanup policy, shelter matching and
+reservations, geocoding, notifications, QR/check-in, AI processing, operator
+workflow transitions, Bull Board, and operational monitoring UI.
 
 ### 5. Public intake and operator queue UI
 

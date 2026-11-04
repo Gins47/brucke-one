@@ -16,3 +16,5 @@ process.env.JWT_SECRET = 'test-jwt-secret-that-is-at-least-thirty-two-bytes';
 process.env.JWT_EXPIRES_IN = '24h';
 process.env.JWT_ISSUER = 'brucke-one-test';
 process.env.JWT_AUDIENCE = 'brucke-one-test';
+// Jest maps BullMQ to a test double, so this URL cannot reach local Redis.
+process.env.REDIS_URL = 'redis://127.0.0.1:6379';
