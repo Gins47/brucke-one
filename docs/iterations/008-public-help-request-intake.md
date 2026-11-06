@@ -1,30 +1,35 @@
 # Iteration 008 — Public Help-Request Intake
 
-**Status:** Planned  
+**Status:** In progress — backend completion planned
 **Prerequisites:** Iterations 001–007 accepted; emergency operations, development authentication, organization-scoped dashboards, and shelter availability are available.
 
 ## Goal
 
-Let an affected person submit a minimal help request without logging in, and let authorized operators see the resulting requests in a protected queue.
+Finish the help-request backend: accept a minimal public request, make it
+available through a protected operator queue API, and establish the durable
+asynchronous handoff boundary for later processing.
 
 This iteration establishes an auditable intake record only. It does **not** match a person to a shelter, reserve capacity, create a QR code, send email, perform geocoding, or use AI.
 
 ```text
-Public country page → active operation selection → help request
-→ PENDING_REVIEW → protected operator queue
+Public operation-list API → help-request API → PENDING_REVIEW
+→ protected operator queue API
 ```
 
 ## Scope and product decisions
 
-- The public entry route is `/request-help/:countryCode`, for example `/request-help/de`.
-- URL country codes are lowercase ISO 3166-1 alpha-2 values; the API normalizes and validates them as uppercase values such as `DE`.
-- The public page lists only the relevant country's active emergency operations and exposes only safe, minimal operation details.
-- If exactly one operation is active, the UI may preselect it. If more than one is active, the person selects one explicitly.
+- Public API country-code paths use lowercase ISO 3166-1 alpha-2 values, for
+  example `/public/countries/de/help-requests`; the API normalizes and
+  validates them as uppercase values such as `DE`.
+- The public operation-list API exposes only safe, minimal details for active
+  operations in the selected country.
 - A submitted request always starts as `PENDING_REVIEW`.
 - The requester provides their name, phone number, group size, location description, independent-travel answer, and medical-support-needed answer. Email is optional.
 - When an email is supplied, one normalized email can have only one request for the same emergency operation. The same email can request help in another operation.
-- The public UI does not require login, email verification, a public status lookup, or a public request-edit flow.
-- The public confirmation must state that receipt of a request does not confirm a shelter placement.
+- A public and operator UI is deferred to the planned Iteration 009. Iteration
+  008 defines backend contracts only.
+- The current public acknowledgement states that receipt does not confirm a
+  shelter placement.
 - Existing protected APIs remain protected. Only the explicitly documented public endpoints bypass the development ADMIN guard.
 
 ## Domain model
@@ -36,6 +41,7 @@ Create a `help_requests` table.
 | `id`                       | UUID primary key.                                                                                                               |
 | `emergency_operation_id`   | Required restrictive foreign key to `emergency_operations.id`; immutable after creation.                                        |
 | `public_reference`         | Required opaque, unique server-generated reference. It is not a credential and is not used for public lookup in this iteration. |
+| `short_reference`          | Nullable unique five-character uppercase alphanumeric public identifier. Existing pre-Checkpoint-5 rows remain null; new public submissions receive one. |
 | `requester_name`           | Required trimmed text.                                                                                                          |
 | `requester_phone`          | Required trimmed text. No country-specific phone validation in this iteration.                                                  |
 | `requester_email`          | Optional normalized email text: lowercase and trimmed when present.                                                             |
@@ -67,6 +73,8 @@ Only `PENDING_REVIEW` is created or acted on in this iteration. The remaining va
 group_size > 0
 requester_email IS NULL OR requester_email = lower(btrim(requester_email))
 UNIQUE (public_reference)
+UNIQUE (short_reference)
+short_reference IS NULL OR short_reference ~ '^[A-Z0-9]{5}$'
 UNIQUE (emergency_operation_id, requester_email)
   WHERE requester_email IS NOT NULL
 ```
@@ -95,9 +103,15 @@ For creation, the service must verify in one controlled write path that:
 3. it belongs to the route country;
 4. a duplicate normalized email does not create another request for that operation.
 
-Apply an explicit, documented basic rate limit and request-size limit to the public write endpoint. Do not introduce CAPTCHA, email delivery, or phone verification in this iteration.
+Before live use, the public write endpoint requires explicit rate limiting and
+request-size limits. This synthetic-data PoC does not add an in-memory limiter,
+CAPTCHA, email delivery, or phone verification.
 
-The public response is deliberately generic and does not disclose whether a supplied email already has a request. It confirms only that the request was received for follow-up. The public reference is persisted but not treated as a public read credential.
+The persisted opaque `public_reference` is not a public read credential. From
+Checkpoint 5, a genuinely new request also returns a short public identifier;
+a different-key duplicate email acknowledgement intentionally omits it. This
+controlled synthetic-data PoC therefore has the privacy limitation recorded in
+Checkpoint 5 and is not a production non-enumerating contract.
 
 ### Protected operator endpoint
 
@@ -107,24 +121,12 @@ The public response is deliberately generic and does not disclose whether a supp
 
 The protected queue is scoped through the operation's organization. It initially lists `PENDING_REVIEW` requests with the requester's minimum operational contact details and submission time. It must not expose cross-organization records.
 
-## UI scope
+## UI boundary
 
-### Public help-request flow
-
-- Build `/request-help/[countryCode]` as a mobile-first, no-login page separate from the operator dashboard shell.
-- Show a country-specific operation selector only when more than one active operation is available; preselect exactly one operation when applicable.
-- Collect the fields specified above with clear, plain-language labels.
-- Include a short emergency disclaimer: immediate danger requires contacting local emergency services.
-- On success, show a generic confirmation: `Your request has been received. A shelter placement has not yet been confirmed.`
-- Provide clear loading, validation, duplicate-safe confirmation, unavailable-operation, and service-error states.
-- Do not show operational capacity, shelter recommendations, maps, QR codes, or a request-status screen.
-
-### Operator queue
-
-- Add a protected, organization-aware request-queue view reached from the relevant active emergency operation.
-- Show request reference, requester name, contact method, group size, location description, independent-travel answer, medical-support-needed answer, status, and submitted time.
-- Show an explicit empty state when no requests are pending review.
-- No approve, reject, assignment, reservation, or status-transition actions are added in this iteration.
+Public Next.js intake and protected operator-queue views are deliberately out
+of scope for Iteration 008. They are planned for a separate Iteration 009 and
+must consume the completed backend contracts without extending matching,
+reservation, or status-transition behaviour.
 
 ## Checkpoints
 
@@ -203,8 +205,7 @@ has been received. Emergency staff will review it.` That acknowledgement
 
 **Acceptance:** An authorized operator can see only the pending requests for their operation.
 
-**Status:** Automated verification complete; manual Redis Insight verification
-pending
+**Status:** Complete
 
 **Implementation record:**
 
@@ -318,7 +319,8 @@ changed payload, and both concurrent submission paths.
 
 #### 4C. BullMQ outbox publisher
 
-**Status:** Complete
+**Status:** Automated verification complete; manual Redis Insight verification
+pending
 
 **Implementation record:**
 
@@ -342,6 +344,8 @@ changed payload, and both concurrent submission paths.
 
 #### 4D. BullMQ worker behaviour
 
+**Status:** Deferred
+
 Worker processing remains deferred after 4C:
 
 - The first idempotent worker will mark an outbox event processed. It will not
@@ -352,29 +356,101 @@ infrastructure, production job retention/cleanup policy, shelter matching and
 reservations, geocoding, notifications, QR/check-in, AI processing, operator
 workflow transitions, Bull Board, and operational monitoring UI.
 
-### 5. Public intake and operator queue UI
+### 5. Short reference on genuinely new submissions
 
-- Consume the existing public intake and protected queue APIs only.
-- Implement the public mobile-first request form and confirmation state.
-- Implement the protected operator queue in the operation workflow.
-- Add focused frontend tests for one/multiple/no active operations, validation, generic success/duplicate handling, session separation, queue rendering, and responsive behaviour.
+**Status:** Complete
 
-**Acceptance:** A public user can request help without login; an operator can see the submitted request; neither UI implies placement is confirmed.
+- `help_requests.short_reference` is a separate nullable field beside the
+  existing opaque internal `public_reference`. PostgreSQL enforces uniqueness
+  and `^[A-Z0-9]{5}$`; null preserves historical pre-Checkpoint-5 rows.
+- Each genuinely new public submission creates an uppercase alphanumeric
+  five-character reference with Node cryptographic randomness. The insert
+  retries a short-reference collision at most five times inside the existing
+  transaction. Exhaustion fails safely and rolls back the request,
+  idempotency record, and outbox event.
+- A newly created request returns:
 
-### 6. Final verification and documentation
+  ```json
+  {
+    "acknowledgementReference": "opaque acknowledgement value",
+    "shortReference": "A1B2C",
+    "status": "PENDING_REVIEW",
+    "acknowledgedAt": "ISO timestamp",
+    "message": "Your request has been received. Emergency staff will review it."
+  }
+  ```
 
-- Review schema, migration, public exposure, API contracts, queue scope, UI states, and documentation against this iteration.
-- Run relevant isolated database tests, API tests, frontend tests, build, lint,
-  Drizzle check, and `git diff --check`.
-- Document the local Redis/BullMQ setup, known limitations, and accepted
-  deferred work accurately.
+- The same `Idempotency-Key` and normalized payload replay the exact durable
+  acknowledgement, including `shortReference`. The same key with a different
+  payload remains `409 Conflict`.
+- A different key with the same normalized email and operation returns the
+  generic `201` acknowledgement without `shortReference`; it does not read,
+  return, or modify the original request and does not create another outbox
+  event. That no-reference acknowledgement is stored for exact replay under
+  its own idempotency key.
+- The short reference is a public identifier, not a password, secret, lookup
+  credential, or authentication mechanism.
 
-**Acceptance:** Intake is safe, narrow, tested, and documented; no shelter capacity or assignment is changed by a request.
+**Privacy limitation:** Returning a short reference for a new request and no
+reference for a different-key duplicate can reveal prior use of an email. This
+is intentionally limited to the controlled synthetic-data PoC, is not
+non-enumerating or production-ready, and needs privacy/security redesign before
+any real-user or pilot use.
+
+**Acceptance:** The reference and duplicate-response behaviour are implemented,
+reviewed, concurrency-safe, and covered by focused tests.
+
+**Verification:** The focused service tests and full disposable PostgreSQL API
+E2E suite pass. The E2E suite covers new-reference persistence, exact
+idempotency replay, duplicate-email acknowledgement without a reference,
+concurrent same-key submission, collision retry, and retry exhaustion rollback.
+API unit tests, build, lint, Drizzle schema check, and `git diff --check` also
+pass. The generated migration was applied only to the disposable test database,
+which was removed after the test run; it was not applied to development.
+
+### 6. Minimal public status lookup
+
+Plan a separate, focused backend-only status lookup using the five-character
+reference.
+
+- It returns only a minimal non-sensitive request status.
+- It does not expose requester name, contact details, address, QR code,
+  reservation information, or other personal data.
+- Invalid and unknown references receive the same generic response.
+- The reference is not authentication.
+
+The endpoint path and final status mapping must be agreed before coding. Even
+the existence or status of a request can be sensitive; stronger access
+verification, rate limiting, abuse protection, and privacy review are required
+before real-world use. This is also limited to the controlled synthetic-data
+PoC.
+
+**Acceptance:** The minimal lookup contract is implemented, reviewed, and
+covered by focused tests without expanding into placement or reservation data.
+
+### 7. Final verification and documentation
+
+- Review schema, migration, public exposure, API contracts, idempotency,
+  references, lookup scope, and asynchronous handoff against this iteration.
+- Run relevant isolated database tests, API tests, build, lint, Drizzle check,
+  and `git diff --check`.
+- Document local Redis/BullMQ setup, actual manual-verification results, known
+  limitations, and accepted deferred work accurately.
+
+**Acceptance:** Iteration 008 is complete only after the reference and
+duplicate-response checkpoint, minimal status lookup checkpoint, focused tests,
+and documentation are complete. No shelter capacity or assignment is changed
+by a request.
 
 ## Explicitly deferred
 
 - AI-assisted conversation, MCP tools, OpenUI, translation, voice, and model-generated summaries.
 - Address geocoding, coordinates, routing, maps, and shelter recommendation.
 - Shelter matching, capacity reservations, QR codes, assignment decisions, arrivals, and person registration.
-- Email confirmation, email verification, SMS, telephone, WhatsApp, notifications, and public request lookup/editing.
+- Email confirmation, email verification, SMS, telephone, WhatsApp,
+  notifications, and public request editing. The narrow synthetic-data status
+  lookup remains planned only as Checkpoint 6.
 - Operator review actions, status transitions, role expansion, production tenant authorization, and production-grade abuse prevention.
+- Public intake and operator queue UI, planned for Iteration 009.
+- The meaningful BullMQ worker, recovery behaviour, matching, reservations,
+  and any business processing of enqueued jobs.
