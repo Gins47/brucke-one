@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { eq, sql } from 'drizzle-orm';
-import { randomUUID } from 'node:crypto';
+import * as crypto from 'node:crypto';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
@@ -12,6 +12,7 @@ import {
   helpRequests,
   outboxEvents,
 } from '../src/database/schema';
+import { HelpRequestsService } from '../src/help-requests/help-requests.service';
 import {
   authenticatedRequest,
   getTestAdminAccessToken,
@@ -21,6 +22,7 @@ type Organization = { id: string };
 type Operation = { id: string; operationCode: string; countryCode: string };
 type Acknowledgement = {
   acknowledgementReference: string;
+  shortReference?: string;
   status: 'PENDING_REVIEW';
   acknowledgedAt: string;
   message: string;
@@ -43,7 +45,7 @@ async function createOrganization(
   const response = await authenticatedRequest(app, accessToken)
     .post('/organizations')
     .send({
-      code: `PUBLIC-${randomUUID().slice(0, 20)}`,
+      code: `PUBLIC-${crypto.randomUUID().slice(0, 20)}`,
       name: 'Public Help Request Test Organization',
     })
     .expect(201);
@@ -58,7 +60,7 @@ async function createOperation(
   countryCode: string,
   active = false,
 ): Promise<Operation> {
-  const operationCode = `PUBLIC-${randomUUID().slice(0, 20)}`;
+  const operationCode = `PUBLIC-${crypto.randomUUID().slice(0, 20)}`;
   const response = await authenticatedRequest(app, accessToken)
     .post('/emergency-operations')
     .send({
@@ -93,7 +95,7 @@ function createRequestBody(
 function submitPublicRequest(
   app: INestApplication<App>,
   countryCode: string,
-  idempotencyKey = randomUUID(),
+  idempotencyKey = crypto.randomUUID(),
 ) {
   return request(app.getHttpServer())
     .post(`/public/countries/${countryCode}/help-requests`)
@@ -118,6 +120,7 @@ let accessToken: string;
 describe('Public help-request API (e2e)', () => {
   let app: INestApplication<App>;
   let database: DatabaseService;
+  let helpRequestsService: HelpRequestsService;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -126,6 +129,7 @@ describe('Public help-request API (e2e)', () => {
     app = moduleFixture.createNestApplication();
     await app.init();
     database = moduleFixture.get(DatabaseService);
+    helpRequestsService = moduleFixture.get(HelpRequestsService);
     accessToken = await getTestAdminAccessToken(app);
   });
 
@@ -201,7 +205,7 @@ describe('Public help-request API (e2e)', () => {
   it('accepts a valid unauthenticated request for an active country operation', async () => {
     const organization = await createOrganization(app);
     const operation = await createOperation(app, organization.id, 'DE', true);
-    const idempotencyKey = randomUUID();
+    const idempotencyKey = crypto.randomUUID();
 
     const response = await submitPublicRequest(app, 'de', idempotencyKey)
       .send(createRequestBody(operation.id))
@@ -216,6 +220,7 @@ describe('Public help-request API (e2e)', () => {
     expect(acknowledgement.acknowledgementReference).toMatch(
       /^[A-Za-z0-9_-]{24}$/,
     );
+    expect(acknowledgement.shortReference).toMatch(/^[A-Z0-9]{5}$/);
     expect(typeof acknowledgement.acknowledgedAt).toBe('string');
     const [stored] = await database.db
       .select()
@@ -229,6 +234,7 @@ describe('Public help-request API (e2e)', () => {
     expect(stored.publicReference).not.toBe(
       acknowledgement.acknowledgementReference,
     );
+    expect(stored.shortReference).toBe(acknowledgement.shortReference);
     const [idempotency] = await database.db
       .select()
       .from(helpRequestIdempotency)
@@ -240,6 +246,7 @@ describe('Public help-request API (e2e)', () => {
     expect(requestEvents).toHaveLength(1);
     const [outboxEvent] = requestEvents;
     expect(idempotency).toBeDefined();
+    expect(idempotency.shortReference).toBe(acknowledgement.shortReference);
     expect(outboxEvent).toMatchObject({
       eventType: 'help-request-submitted',
       helpRequestId: stored.id,
@@ -271,7 +278,7 @@ describe('Public help-request API (e2e)', () => {
       .send(createRequestBody(inactiveOperation.id))
       .expect(404);
     const missing = await submitPublicRequest(app, 'de')
-      .send(createRequestBody(randomUUID()))
+      .send(createRequestBody(crypto.randomUUID()))
       .expect(404);
 
     expect(wrongCountry.body).toEqual(inactive.body);
@@ -308,7 +315,9 @@ describe('Public help-request API (e2e)', () => {
     const organization = await createOrganization(app);
     const operation = await createOperation(app, organization.id, 'DE', true);
 
-    const first = await submitPublicRequest(app, 'de')
+    const firstIdempotencyKey = crypto.randomUUID();
+    const duplicateIdempotencyKey = crypto.randomUUID();
+    const first = await submitPublicRequest(app, 'de', firstIdempotencyKey)
       .send(createRequestBody(operation.id))
       .expect(201);
     const firstAcknowledgement = first.body as unknown as Acknowledgement;
@@ -325,7 +334,11 @@ describe('Public help-request API (e2e)', () => {
       .select()
       .from(helpRequests)
       .where(eq(helpRequests.id, createdRequest.id));
-    const duplicate = await submitPublicRequest(app, 'de')
+    const duplicate = await submitPublicRequest(
+      app,
+      'de',
+      duplicateIdempotencyKey,
+    )
       .send(
         createRequestBody(operation.id, {
           requesterEmail: ' PERSON@EXAMPLE.TEST ',
@@ -345,6 +358,8 @@ describe('Public help-request API (e2e)', () => {
     expect(duplicateAcknowledgement.acknowledgementReference).not.toBe(
       firstAcknowledgement.acknowledgementReference,
     );
+    expect(firstAcknowledgement.shortReference).toMatch(/^[A-Z0-9]{5}$/);
+    expect(duplicateAcknowledgement.shortReference).toBeUndefined();
     expect(duplicateAcknowledgement.acknowledgedAt).not.toBe(
       storedBeforeDuplicate.createdAt.toISOString(),
     );
@@ -359,6 +374,26 @@ describe('Public help-request API (e2e)', () => {
       .from(outboxEvents)
       .where(eq(outboxEvents.helpRequestId, stored[0].id));
     expect(storedEvents).toHaveLength(1);
+    const [duplicateIdempotency] = await database.db
+      .select()
+      .from(helpRequestIdempotency)
+      .where(
+        eq(helpRequestIdempotency.idempotencyKey, duplicateIdempotencyKey),
+      );
+    expect(duplicateIdempotency.shortReference).toBeNull();
+
+    const duplicateReplay = await submitPublicRequest(
+      app,
+      'de',
+      duplicateIdempotencyKey,
+    )
+      .send(
+        createRequestBody(operation.id, {
+          requesterEmail: 'person@example.test',
+        }),
+      )
+      .expect(201);
+    expect(duplicateReplay.body).toEqual(duplicateAcknowledgement);
   });
 
   it('rejects empty or malformed idempotency key header values', async () => {
@@ -391,7 +426,7 @@ describe('Public help-request API (e2e)', () => {
   it('replays the stored acknowledgement for the same key and normalized payload', async () => {
     const organization = await createOrganization(app);
     const operation = await createOperation(app, organization.id, 'DE', true);
-    const idempotencyKey = randomUUID();
+    const idempotencyKey = crypto.randomUUID();
 
     const first = await submitPublicRequest(app, 'de', idempotencyKey)
       .send(createRequestBody(operation.id))
@@ -422,10 +457,79 @@ describe('Public help-request API (e2e)', () => {
     expect(storedEvents).toHaveLength(1);
   });
 
+  it('retries a short-reference collision and rolls back when retries are exhausted', async () => {
+    const organization = await createOrganization(app);
+    const operation = await createOperation(app, organization.id, 'DE', true);
+    const occupiedShortReference = 'AAAAA';
+    await database.db.insert(helpRequests).values({
+      emergencyOperationId: operation.id,
+      publicReference: `seed-${crypto.randomUUID()}`,
+      shortReference: occupiedShortReference,
+      requesterName: 'Existing Requester',
+      requesterPhone: '+49123456780',
+      requesterEmail: 'existing@example.test',
+      groupSize: 1,
+      locationDescription: 'Existing location',
+      canTravelIndependently: true,
+      medicalSupportNeeded: false,
+      status: 'PENDING_REVIEW',
+    });
+    const generateShortReference = jest.spyOn(
+      helpRequestsService as unknown as {
+        generateShortReference: () => string;
+      },
+      'generateShortReference',
+    );
+
+    try {
+      generateShortReference.mockReturnValueOnce(occupiedShortReference);
+      generateShortReference.mockReturnValue('BBBBB');
+      const collisionRetry = await submitPublicRequest(app, 'de')
+        .send(
+          createRequestBody(operation.id, {
+            requesterEmail: 'collision-retry@example.test',
+          }),
+        )
+        .expect(201);
+      expect((collisionRetry.body as Acknowledgement).shortReference).toBe(
+        'BBBBB',
+      );
+
+      generateShortReference
+        .mockReset()
+        .mockReturnValue(occupiedShortReference);
+      const exhaustedIdempotencyKey = crypto.randomUUID();
+      await submitPublicRequest(app, 'de', exhaustedIdempotencyKey)
+        .send(
+          createRequestBody(operation.id, {
+            requesterEmail: 'collision-exhausted@example.test',
+          }),
+        )
+        .expect(500);
+
+      const exhaustedRequests = await database.db
+        .select()
+        .from(helpRequests)
+        .where(
+          eq(helpRequests.requesterEmail, 'collision-exhausted@example.test'),
+        );
+      const exhaustedIdempotency = await database.db
+        .select()
+        .from(helpRequestIdempotency)
+        .where(
+          eq(helpRequestIdempotency.idempotencyKey, exhaustedIdempotencyKey),
+        );
+      expect(exhaustedRequests).toHaveLength(0);
+      expect(exhaustedIdempotency).toHaveLength(0);
+    } finally {
+      generateShortReference.mockRestore();
+    }
+  });
+
   it('rolls back a submission when the outbox event insert fails', async () => {
     const organization = await createOrganization(app);
     const operation = await createOperation(app, organization.id, 'DE', true);
-    const idempotencyKey = randomUUID();
+    const idempotencyKey = crypto.randomUUID();
     const eventsBefore = await database.db.select().from(outboxEvents);
 
     try {
@@ -476,7 +580,7 @@ describe('Public help-request API (e2e)', () => {
   it('rejects reuse of an idempotency key with a changed request', async () => {
     const organization = await createOrganization(app);
     const operation = await createOperation(app, organization.id, 'DE', true);
-    const idempotencyKey = randomUUID();
+    const idempotencyKey = crypto.randomUUID();
 
     await submitPublicRequest(app, 'de', idempotencyKey)
       .send(createRequestBody(operation.id))
@@ -489,7 +593,7 @@ describe('Public help-request API (e2e)', () => {
   it('keeps one request when concurrent submissions share an idempotency key', async () => {
     const organization = await createOrganization(app);
     const operation = await createOperation(app, organization.id, 'DE', true);
-    const idempotencyKey = randomUUID();
+    const idempotencyKey = crypto.randomUUID();
 
     const responses = await Promise.all([
       submitPublicRequest(app, 'de', idempotencyKey)
@@ -501,6 +605,9 @@ describe('Public help-request API (e2e)', () => {
     ]);
 
     expect(responses[0].body).toEqual(responses[1].body);
+    expect((responses[0].body as Acknowledgement).shortReference).toMatch(
+      /^[A-Z0-9]{5}$/,
+    );
     const storedRequests = await database.db
       .select()
       .from(helpRequests)

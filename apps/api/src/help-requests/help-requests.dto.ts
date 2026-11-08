@@ -43,6 +43,7 @@ export type PublicEmergencyOperationResponse = {
 
 export type PublicHelpRequestAcknowledgement = {
   acknowledgementReference: string;
+  shortReference?: string;
   status: 'PENDING_REVIEW';
   acknowledgedAt: Date;
   message: string;

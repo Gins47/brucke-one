@@ -23,6 +23,7 @@ const requestInput = {
 type StoredAcknowledgement = {
   requestFingerprint: string;
   acknowledgementReference: string;
+  shortReference: string | null;
   acknowledgementStatus: string;
   acknowledgementMessage: string;
   acknowledgedAt: Date;
@@ -36,13 +37,18 @@ function createPublicRequestDatabaseMock(options: {
 }) {
   const helpRequestReturning = jest
     .fn()
-    .mockResolvedValue([{ id: operationId }]);
+    .mockResolvedValue([{ id: operationId, shortReference: 'ABCDE' }]);
   const requestOnConflictDoNothing = jest.fn(() => ({
     returning: helpRequestReturning,
   }));
   const requestValues = jest.fn(() => ({
     onConflictDoNothing: requestOnConflictDoNothing,
   }));
+  const idempotencyUpdateWhere = jest.fn().mockResolvedValue(undefined);
+  const idempotencyUpdateSet = jest.fn(() => ({
+    where: idempotencyUpdateWhere,
+  }));
+  const update = jest.fn(() => ({ set: idempotencyUpdateSet }));
   const outboxValues = jest.fn().mockResolvedValue(undefined);
   const idempotencyReturning = jest
     .fn()
@@ -58,7 +64,6 @@ function createPublicRequestDatabaseMock(options: {
   const insert = jest
     .fn()
     .mockReturnValueOnce({ values: idempotencyValues })
-    .mockReturnValueOnce({ values: requestValues })
     .mockReturnValueOnce({ values: outboxValues });
   const limit = jest
     .fn()
@@ -75,8 +80,13 @@ function createPublicRequestDatabaseMock(options: {
   const where = jest.fn(() => ({ for: forUpdate }));
   const from = jest.fn(() => ({ where }));
   const select = jest.fn(() => ({ from }));
+  const savepointInsert = jest.fn(() => ({ values: requestValues }));
+  const savepointTransaction = jest.fn(
+    async (work: (tx: unknown) => Promise<unknown>) =>
+      work({ insert: savepointInsert }),
+  );
   const transaction = jest.fn(async (work: (tx: unknown) => Promise<unknown>) =>
-    work({ insert, select }),
+    work({ insert, select, transaction: savepointTransaction, update }),
   );
 
   return {
@@ -123,6 +133,7 @@ describe('HelpRequestsService', () => {
         'Your request has been received. Emergency staff will review it.',
     });
     expect(response.acknowledgementReference).toMatch(/^[A-Za-z0-9_-]{24}$/);
+    expect(response.shortReference).toMatch(/^[A-Z0-9]{5}$/);
     expect(mock.requestOnConflictDoNothing).toHaveBeenCalledTimes(1);
   });
 
@@ -143,6 +154,7 @@ describe('HelpRequestsService', () => {
         requestInput,
       ),
       acknowledgementReference: 'stored-acknowledgement',
+      shortReference: 'ABCDE',
       acknowledgementStatus: 'PENDING_REVIEW',
       acknowledgementMessage:
         'Your request has been received. Emergency staff will review it.',
@@ -158,6 +170,7 @@ describe('HelpRequestsService', () => {
       service.createPublicRequest('DE', requestInput, idempotencyKey),
     ).resolves.toEqual({
       acknowledgementReference: storedAcknowledgement.acknowledgementReference,
+      shortReference: storedAcknowledgement.shortReference,
       status: 'PENDING_REVIEW',
       acknowledgedAt,
       message: storedAcknowledgement.acknowledgementMessage,
@@ -170,6 +183,7 @@ describe('HelpRequestsService', () => {
       storedAcknowledgement: {
         requestFingerprint: 'different-fingerprint',
         acknowledgementReference: 'stored-acknowledgement',
+        shortReference: 'ABCDE',
         acknowledgementStatus: 'PENDING_REVIEW',
         acknowledgementMessage:
           'Your request has been received. Emergency staff will review it.',

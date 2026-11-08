@@ -12,6 +12,7 @@ import {
   unique,
   uniqueIndex,
   uuid,
+  varchar,
 } from 'drizzle-orm/pg-core';
 
 import { emergencyOperations } from './emergency-operations';
@@ -33,6 +34,7 @@ export const helpRequests = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     emergencyOperationId: uuid('emergency_operation_id').notNull(),
     publicReference: text('public_reference').notNull(),
+    shortReference: varchar('short_reference', { length: 5 }),
     requesterName: text('requester_name').notNull(),
     requesterPhone: text('requester_phone').notNull(),
     requesterEmail: text('requester_email'),
@@ -55,6 +57,7 @@ export const helpRequests = pgTable(
       foreignColumns: [emergencyOperations.id],
     }).onDelete('restrict'),
     unique('help_requests_public_reference_unique').on(table.publicReference),
+    unique('help_requests_short_reference_unique').on(table.shortReference),
     uniqueIndex('help_requests_operation_email_unique')
       .on(table.emergencyOperationId, table.requesterEmail)
       .where(sql`${table.requesterEmail} IS NOT NULL`),
@@ -69,6 +72,10 @@ export const helpRequests = pgTable(
     check(
       'help_requests_requester_email_normalized_check',
       sql`${table.requesterEmail} IS NULL OR ${table.requesterEmail} = lower(btrim(${table.requesterEmail}))`,
+    ),
+    check(
+      'help_requests_short_reference_format_check',
+      sql`${table.shortReference} IS NULL OR ${table.shortReference} ~ '^[A-Z0-9]{5}$'`,
     ),
   ],
 );

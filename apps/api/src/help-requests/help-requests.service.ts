@@ -1,11 +1,12 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import * as crypto from 'node:crypto';
 
 import {
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
 
 import { DatabaseService } from '../database/database.service';
 import {
@@ -27,12 +28,25 @@ import { encodeHelpRequestQueueCursor } from './help-requests.dto';
 
 /** Generates an opaque 144-bit value for a stored or acknowledgement reference. */
 function createOpaqueReference(): string {
-  return randomBytes(18).toString('base64url');
+  return crypto.randomBytes(18).toString('base64url');
+}
+
+const shortReferenceAlphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+const shortReferenceLength = 5;
+const shortReferenceMaximumAttempts = 5;
+
+/** Generates one uppercase alphanumeric public identifier using Node crypto. */
+export function createShortReference(): string {
+  return Array.from(
+    { length: shortReferenceLength },
+    () =>
+      shortReferenceAlphabet[crypto.randomInt(shortReferenceAlphabet.length)],
+  ).join('');
 }
 
 /** Builds the identifier-only event stored for one newly created help request. */
 function createHelpRequestSubmittedEvent(helpRequestId: string) {
-  const outboxEventId = randomUUID();
+  const outboxEventId = crypto.randomUUID();
 
   return {
     id: outboxEventId,
@@ -46,9 +60,11 @@ function createHelpRequestSubmittedEvent(helpRequestId: string) {
 function toAcknowledgement(
   acknowledgementReference: string,
   acknowledgedAt: Date,
+  shortReference?: string,
 ): PublicHelpRequestAcknowledgement {
   return {
     acknowledgementReference,
+    ...(shortReference ? { shortReference } : {}),
     status: 'PENDING_REVIEW',
     acknowledgedAt,
     message: 'Your request has been received. Emergency staff will review it.',
@@ -58,12 +74,14 @@ function toAcknowledgement(
 /** Replays the durable acknowledgement stored for a completed idempotent submission. */
 function toStoredAcknowledgement(row: {
   acknowledgementReference: string;
+  shortReference: string | null;
   acknowledgementStatus: string;
   acknowledgementMessage: string;
   acknowledgedAt: Date;
 }): PublicHelpRequestAcknowledgement {
   return {
     acknowledgementReference: row.acknowledgementReference,
+    ...(row.shortReference ? { shortReference: row.shortReference } : {}),
     status: row.acknowledgementStatus as 'PENDING_REVIEW',
     acknowledgedAt: row.acknowledgedAt,
     message: row.acknowledgementMessage,
@@ -87,9 +105,27 @@ export function createPublicHelpRequestFingerprint(
     medicalSupportNeeded: input.medicalSupportNeeded,
   };
 
-  return createHash('sha256')
+  return crypto
+    .createHash('sha256')
     .update(JSON.stringify(canonicalRequest))
     .digest('hex');
+}
+
+/** Identifies a PostgreSQL constraint error without exposing database details. */
+function hasPostgresConstraint(error: unknown, constraint: string): boolean {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  const databaseError = error as {
+    constraint?: unknown;
+    cause?: { constraint?: unknown };
+  };
+
+  return (
+    databaseError.constraint === constraint ||
+    databaseError.cause?.constraint === constraint
+  );
 }
 
 /** Maps an internal help-request row to the fields available to operators. */
@@ -113,6 +149,8 @@ function toOperatorHelpRequest(
 
 @Injectable()
 export class HelpRequestsService {
+  private readonly generateShortReference = createShortReference;
+
   constructor(private readonly database: DatabaseService) {}
 
   /** Lists active operations and their current affected regions without internal fields. */
@@ -217,6 +255,7 @@ export class HelpRequestsService {
           idempotencyKey,
           requestFingerprint,
           acknowledgementReference,
+          shortReference: null,
           acknowledgementStatus: acknowledgement.status,
           acknowledgementMessage: acknowledgement.message,
           acknowledgedAt,
@@ -230,6 +269,7 @@ export class HelpRequestsService {
             requestFingerprint: helpRequestIdempotency.requestFingerprint,
             acknowledgementReference:
               helpRequestIdempotency.acknowledgementReference,
+            shortReference: helpRequestIdempotency.shortReference,
             acknowledgementStatus: helpRequestIdempotency.acknowledgementStatus,
             acknowledgementMessage:
               helpRequestIdempotency.acknowledgementMessage,
@@ -270,26 +310,77 @@ export class HelpRequestsService {
         throw new NotFoundException('Emergency operation not found');
       }
 
-      const [createdHelpRequest] = await tx
-        .insert(helpRequests)
-        .values({
-          ...input,
-          publicReference,
-          status: 'PENDING_REVIEW',
-        })
-        .onConflictDoNothing({
-          target: [
-            helpRequests.emergencyOperationId,
-            helpRequests.requesterEmail,
-          ],
-          where: sql`${helpRequests.requesterEmail} IS NOT NULL`,
-        })
-        .returning({ id: helpRequests.id });
+      let createdHelpRequest:
+        { id: string; shortReference: string } | undefined;
+      let hasDuplicateEmail = false;
+
+      for (
+        let attempt = 0;
+        attempt < shortReferenceMaximumAttempts;
+        attempt += 1
+      ) {
+        const shortReference = this.generateShortReference();
+
+        try {
+          const [createdRequest] = await tx.transaction(async (savepoint) =>
+            savepoint
+              .insert(helpRequests)
+              .values({
+                ...input,
+                publicReference,
+                shortReference,
+                status: 'PENDING_REVIEW',
+              })
+              .onConflictDoNothing({ target: helpRequests.shortReference })
+              .returning({
+                id: helpRequests.id,
+                shortReference: helpRequests.shortReference,
+              }),
+          );
+
+          if (createdRequest) {
+            if (!createdRequest.shortReference) {
+              throw new InternalServerErrorException(
+                'Created help request is missing its short reference',
+              );
+            }
+
+            createdHelpRequest = {
+              id: createdRequest.id,
+              shortReference: createdRequest.shortReference,
+            };
+            break;
+          }
+        } catch (error) {
+          if (
+            hasPostgresConstraint(error, 'help_requests_operation_email_unique')
+          ) {
+            hasDuplicateEmail = true;
+            break;
+          }
+
+          throw error;
+        }
+      }
+
+      if (!createdHelpRequest && !hasDuplicateEmail) {
+        throw new InternalServerErrorException('Unable to create help request');
+      }
 
       if (createdHelpRequest) {
         await tx
+          .update(helpRequestIdempotency)
+          .set({ shortReference: createdHelpRequest.shortReference })
+          .where(eq(helpRequestIdempotency.idempotencyKey, idempotencyKey));
+        await tx
           .insert(outboxEvents)
           .values(createHelpRequestSubmittedEvent(createdHelpRequest.id));
+
+        return toAcknowledgement(
+          acknowledgementReference,
+          acknowledgedAt,
+          createdHelpRequest.shortReference,
+        );
       }
 
       return acknowledgement;
