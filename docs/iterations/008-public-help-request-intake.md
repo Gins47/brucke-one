@@ -1,6 +1,6 @@
 # Iteration 008 — Public Help-Request Intake
 
-**Status:** In progress — backend completion planned
+**Status:** Complete — backend intake and outbox-publisher scope accepted
 **Prerequisites:** Iterations 001–007 accepted; emergency operations, development authentication, organization-scoped dashboards, and shelter availability are available.
 
 ## Goal
@@ -433,12 +433,32 @@ covered by focused tests without expanding into placement or reservation data.
 
 ### 7. Final verification and documentation
 
-- Review schema, migration, public exposure, API contracts, idempotency,
-  references, lookup scope, and asynchronous handoff against this iteration.
-- Run relevant isolated database tests, API tests, build, lint, Drizzle check,
-  and `git diff --check`.
-- Document local Redis/BullMQ setup, actual manual-verification results, known
-  limitations, and accepted deferred work accurately.
+**Status:** Complete
+
+**Final acceptance record:**
+
+- The public API provides country-scoped active-operation listing, idempotent
+  request intake, the controlled-PoC short-reference contract, and the minimal
+  status lookup. The protected operation queue remains scoped to one operation.
+- A genuinely new request, its idempotency result, and one identifier-only
+  outbox event commit atomically. The publisher can enqueue committed pending
+  events to BullMQ; `enqueued_at` does not mean business processing because the
+  worker remains deferred.
+- Verification on Node `24.22.0` passed: 16 API unit suites / 77 tests, the
+  full disposable PostgreSQL E2E suite (22 suites / 153 tests), API build,
+  non-mutating lint, Drizzle check, and `git diff --check`.
+- The E2E suite uses the BullMQ test double and did not connect to development
+  Redis. No real Redis/BullMQ or Redis Insight manual verification was
+  performed in this final checkpoint; the local manual verification noted in
+  Checkpoint 4C remains pending.
+- The API README documents the local Redis setup, public endpoint boundary,
+  protected operator queue, and the deferred worker behavior.
+
+**Accepted limitations:** The five-character reference is not authentication.
+Both status lookup and the distinct duplicate-response behavior are limited to
+controlled synthetic data and require privacy/security redesign, stronger
+verification, and rate limiting/abuse protection before real-world use. A
+generic acknowledgement does not guarantee shelter placement.
 
 **Acceptance:** Iteration 008 is complete only after the reference and
 duplicate-response checkpoint, minimal status lookup checkpoint, focused tests,

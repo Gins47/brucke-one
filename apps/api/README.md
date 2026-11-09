@@ -2,8 +2,13 @@
 
 Run API commands from `apps/api`. Copy `.env.example` to `.env` and adjust
 `DATABASE_URL` for your local database. Existing environment variables take
-precedence over `.env`. Start the existing PostgreSQL service with
-`docker compose up -d postgres` from the repository root.
+precedence over `.env`. The API's outbox publisher also requires `REDIS_URL`.
+Start the local PostgreSQL, Redis, and Redis Insight services from the
+repository root:
+
+```bash
+docker compose up -d postgres redis redis-insight
+```
 
 The API imports `DatabaseModule` explicitly and uses one shared PostgreSQL pool.
 It verifies the connection during startup and closes the pool during shutdown.
@@ -50,6 +55,7 @@ JWT_SECRET=<at-least-32-byte-signing-secret>
 JWT_EXPIRES_IN=24h
 JWT_ISSUER=brucke-one-api
 JWT_AUDIENCE=brucke-one-api
+REDIS_URL=redis://127.0.0.1:6379
 ```
 
 Bootstrap is disabled by default. With `ADMIN_BOOTSTRAP_ENABLED=true` in
@@ -92,8 +98,8 @@ Start the API after configuring `.env`:
 npm run start:dev
 ```
 
-`POST /auth/login` is the only public API route. It accepts a strict username
-and password body and returns a bearer token:
+`POST /auth/login` is public. It accepts a strict username and password body
+and returns a bearer token:
 
 ```bash
 curl --request POST http://localhost:3000/auth/login \
@@ -109,13 +115,14 @@ curl --request POST http://localhost:3000/auth/login \
 }
 ```
 
-Set `JWT_SECRET` to a configured secret of at least 32 bytes, and set
+The public help-request endpoints are documented below. All other existing API
+routes require a bearer token for a user with a current `ADMIN` role
+assignment. Set `JWT_SECRET` to a configured secret of at least 32 bytes, and set
 `JWT_EXPIRES_IN`, `JWT_ISSUER`, and `JWT_AUDIENCE` in `.env`. The local
 development example uses a 24-hour expiry; choose an explicit security policy
 for any non-local environment. Tokens use HS256 and are verified for their
-signature, expiry, issuer, audience, and UUID user subject. Existing API
-routes require a bearer token for a user with a current `ADMIN` role assignment.
-There is no public health endpoint. Send the token with protected requests:
+signature, expiry, issuer, audience, and UUID user subject. There is no public
+health endpoint. Send the token with protected requests:
 
 ```bash
 curl http://localhost:3000/organizations \
@@ -125,6 +132,46 @@ curl http://localhost:3000/organizations \
 ADMIN access is application-wide in this development setup; it does not
 provide organization-level isolation. This is a single trusted-admin setup
 without production session management, token revocation, or tenant isolation.
+
+## Public help-request PoC
+
+The following narrow endpoints are public for the controlled synthetic-data
+PoC:
+
+- `GET /public/countries/:countryCode/emergency-operations` lists active
+  operations for a country.
+- `POST /public/countries/:countryCode/help-requests` requires an
+  `Idempotency-Key` UUID header. A new request returns a five-character
+  `shortReference`; a different-key duplicate normalized email receives a
+  generic acknowledgement without one.
+- `GET /public/help-requests/:shortReference/status` normalizes a
+  five-character alphanumeric reference and returns only the request status.
+  Invalid and unknown references both return a generic `404` response.
+
+The short reference is not authentication. Status lookup and the
+duplicate-response behavior are not suitable for real personal data without
+stronger verification, rate limiting and abuse protection, and privacy review.
+A generic acknowledgement confirms receipt only; it does not confirm a shelter
+assignment.
+
+The operator queue remains protected:
+
+```bash
+curl http://localhost:3000/emergency-operations/11111111-1111-1111-1111-111111111111/help-requests \
+  --header 'Authorization: Bearer <access-token>'
+```
+
+## Local outbox publication
+
+Each genuinely new help request commits its outbox event with the request in
+PostgreSQL. The API polls pending events and publishes identifier-only jobs to
+the local `help-request-events` BullMQ queue. Redis Insight is available at
+`http://localhost:5540` for local inspection.
+
+An enqueued job is not business-processed: the BullMQ worker is deferred, so no
+publisher action assigns a shelter, reserves capacity, changes request status,
+or notifies a requester. Automated API tests mock BullMQ and do not connect to
+the development Redis instance.
 
 ## Dashboard read endpoints
 
