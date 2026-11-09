@@ -49,6 +49,16 @@ export type PublicHelpRequestAcknowledgement = {
   message: string;
 };
 
+/** Validates a five-character public reference while normalizing its casing. */
+export const publicHelpRequestShortReferenceSchema = z
+  .string()
+  .regex(/^[a-zA-Z0-9]{5}$/)
+  .transform((value) => value.toUpperCase());
+
+export type PublicHelpRequestStatusResponse = {
+  status: (typeof helpRequestStatus.enumValues)[number];
+};
+
 /** Validates the UUID supplied in the public idempotency request header. */
 export const idempotencyKeySchema = z.uuid();
 

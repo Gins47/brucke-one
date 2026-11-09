@@ -23,8 +23,12 @@ import type {
   OperatorHelpRequestResponse,
   PublicEmergencyOperationResponse,
   PublicHelpRequestAcknowledgement,
+  PublicHelpRequestStatusResponse,
 } from './help-requests.dto';
-import { encodeHelpRequestQueueCursor } from './help-requests.dto';
+import {
+  encodeHelpRequestQueueCursor,
+  publicHelpRequestShortReferenceSchema,
+} from './help-requests.dto';
 
 /** Generates an opaque 144-bit value for a stored or acknowledgement reference. */
 function createOpaqueReference(): string {
@@ -385,6 +389,30 @@ export class HelpRequestsService {
 
       return acknowledgement;
     });
+  }
+
+  /** Returns only a public request's status for a valid short reference. */
+  async findPublicStatus(
+    rawShortReference: string,
+  ): Promise<PublicHelpRequestStatusResponse> {
+    const parsedReference =
+      publicHelpRequestShortReferenceSchema.safeParse(rawShortReference);
+
+    if (!parsedReference.success) {
+      throw new NotFoundException('Help request not found');
+    }
+
+    const [request] = await this.database.db
+      .select({ status: helpRequests.status })
+      .from(helpRequests)
+      .where(eq(helpRequests.shortReference, parsedReference.data))
+      .limit(1);
+
+    if (!request) {
+      throw new NotFoundException('Help request not found');
+    }
+
+    return { status: request.status };
   }
 
   /** Returns one operation's pending-by-default queue with stable cursor pagination. */

@@ -639,6 +639,42 @@ describe('Public help-request API (e2e)', () => {
     expect(storedRequests).toHaveLength(1);
   });
 
+  it('returns only the current status for a known short reference', async () => {
+    const organization = await createOrganization(app);
+    const operation = await createOperation(app, organization.id, 'DE', true);
+    const submission = await submitPublicRequest(app, 'de')
+      .send(createRequestBody(operation.id))
+      .expect(201);
+    const shortReference = (submission.body as Acknowledgement).shortReference;
+
+    expect(shortReference).toMatch(/^[A-Z0-9]{5}$/);
+    if (!shortReference) {
+      throw new Error('Expected a short reference for a new public request');
+    }
+
+    await request(app.getHttpServer())
+      .get(`/public/help-requests/${shortReference.toLowerCase()}/status`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual({ status: 'PENDING_REVIEW' });
+      });
+  });
+
+  it('returns the same generic not-found response for invalid and unknown references', async () => {
+    const invalid = await request(app.getHttpServer())
+      .get('/public/help-requests/ABC-1/status')
+      .expect(404);
+    const unknown = await request(app.getHttpServer())
+      .get('/public/help-requests/ZZZZZ/status')
+      .expect(404);
+
+    expect(invalid.body).toEqual(unknown.body);
+    expect(invalid.body).toMatchObject({
+      statusCode: 404,
+      message: 'Help request not found',
+    });
+  });
+
   it('keeps existing protected routes protected', async () => {
     await request(app.getHttpServer()).get('/organizations').expect(401);
   });

@@ -410,20 +410,23 @@ which was removed after the test run; it was not applied to development.
 
 ### 6. Minimal public status lookup
 
-Plan a separate, focused backend-only status lookup using the five-character
-reference.
+**Status:** Complete
 
-- It returns only a minimal non-sensitive request status.
-- It does not expose requester name, contact details, address, QR code,
-  reservation information, or other personal data.
-- Invalid and unknown references receive the same generic response.
-- The reference is not authentication.
-
-The endpoint path and final status mapping must be agreed before coding. Even
-the existence or status of a request can be sensitive; stronger access
-verification, rate limiting, abuse protection, and privacy review are required
-before real-world use. This is also limited to the controlled synthetic-data
-PoC.
+- `GET /public/help-requests/:shortReference/status` is public and returns
+  only `{ "status": "<help-request status>" }`.
+- The route accepts exactly five alphanumeric characters and normalizes
+  lowercase to uppercase before using the unique short-reference lookup.
+- Invalid-format and unknown references both return the same generic
+  `404 Help request not found` response. The result never includes the
+  reference, IDs, requester data, timestamps, operation details, QR data, or
+  reservation data.
+- The reference is not authentication. This endpoint is limited to the
+  controlled synthetic-data PoC: even confirming existence or status can be
+  sensitive. Stronger verification, rate limiting and abuse protection, and a
+  privacy review are required before any real-world or pilot use.
+- Focused isolated PostgreSQL HTTP tests cover a known reference, lowercase
+  normalization, exact response shape, and equivalent invalid/unknown `404`
+  responses. Existing coverage confirms protected routes remain protected.
 
 **Acceptance:** The minimal lookup contract is implemented, reviewed, and
 covered by focused tests without expanding into placement or reservation data.
@@ -449,7 +452,8 @@ by a request.
 - Shelter matching, capacity reservations, QR codes, assignment decisions, arrivals, and person registration.
 - Email confirmation, email verification, SMS, telephone, WhatsApp,
   notifications, and public request editing. The narrow synthetic-data status
-  lookup remains planned only as Checkpoint 6.
+  lookup remains limited to the controlled synthetic-data PoC; production-grade
+  verification, abuse protection, and privacy controls remain deferred.
 - Operator review actions, status transitions, role expansion, production tenant authorization, and production-grade abuse prevention.
 - Public intake and operator queue UI, planned for Iteration 009.
 - The meaningful BullMQ worker, recovery behaviour, matching, reservations,
