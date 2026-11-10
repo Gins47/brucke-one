@@ -1,7 +1,29 @@
 # Iteration 008 — Public Help-Request Intake
 
-**Status:** Complete — backend intake and outbox-publisher scope accepted
+**Status:** Implemented and accepted backend scope; Redis verification pending; worker deferred
 **Prerequisites:** Iterations 001–007 accepted; emergency operations, development authentication, organization-scoped dashboards, and shelter availability are available.
+
+## Current checkpoint assessment
+
+**Reconciled:** 2026-11-10. See the [status definitions](README.md). Existing acceptance is preserved. Tests were inspected, not rerun; no database or Redis service was accessed.
+
+| Checkpoint | Current status | Code and coverage evidence |
+| --- | --- | --- |
+| 1 — Schema/migration/constraints | Implemented | [Schema](../../apps/api/src/database/schema/help-requests.ts), migration, and [constraint tests](../../apps/api/test/help-request-constraints.e2e-spec.ts). |
+| 2 — Public intake API | Implemented; abuse protection deferred | [Controller](../../apps/api/src/help-requests/help-requests.controller.ts), DTOs/service, and [HTTP tests](../../apps/api/test/public-help-requests.e2e-spec.ts). The original rate-limit test requirement was deferred with rate limiting; no such protection exists. |
+| 3 — Protected operator queue | Implemented for global ADMIN | [Controller](../../apps/api/src/help-requests/operator-help-requests.controller.ts) and [HTTP tests](../../apps/api/test/operator-help-requests.e2e-spec.ts) cover operation scoping and pagination. Organization-membership authorization is absent. |
+| 4 — Idempotent intake/handoff | Implemented through 4C; 4D deferred | Parent scope was accepted with the worker excluded. See subcheckpoint statuses below. |
+| 4A — Database idempotency | Implemented | [Service](../../apps/api/src/help-requests/help-requests.service.ts), durable idempotency schema, and HTTP tests cover replay, changed-payload conflict, and concurrent submissions. |
+| 4B — Transactional outbox | Implemented | Request, idempotency, and identifier-only event share a transaction; [outbox tests](../../apps/api/test/outbox-events-constraints.e2e-spec.ts) and HTTP rollback tests exist. |
+| 4C — BullMQ publisher | Implemented; real integration/manual check pending | [Publisher](../../apps/api/src/outbox-publisher/) and unit tests exist. Both Jest configurations map BullMQ to a test double; tests do not establish a real Redis round trip. |
+| 4D — BullMQ worker | Deferred; not implemented | No worker processor is registered. Enqueueing does not set `processed_at` or perform business processing. |
+| 5 — Short reference | Implemented; synthetic-data limitation | Cryptographic five-character generation, uniqueness migration, collision/retry rollback coverage, and acknowledgement replay exist. Different-key duplicates omit the reference and can reveal prior email use. |
+| 6 — Minimal public status | Implemented; synthetic-data limitation | [Controller](../../apps/api/src/help-requests/public-help-request-status.controller.ts) and HTTP tests enforce status-only responses and generic invalid/unknown `404`. The reference is not authentication. |
+| 7 — Final verification/documentation | Historically accepted with limitations | Final record reports automated checks and explicitly leaves live Redis/manual verification pending. |
+
+**Current contract:** Checkpoints 4A, 5, and 6 extend the initial contract: a UUID `Idempotency-Key` is required, new requests return a short reference, same-key retries replay it, different-key duplicates omit it, and lookup returns status only. Earlier non-enumerating acknowledgement notes describe pre-Checkpoint-5 behavior.
+
+**Decisions:** [Intake/idempotency](../decisions/0008-public-intake-and-idempotency.md), [outbox](../decisions/0009-transactional-outbox-publication.md), and [public references](../decisions/0010-public-references-and-status-lookup.md).
 
 ## Goal
 
@@ -94,7 +116,7 @@ Use strict Zod schemas, the project-owned validation pipe, UUID route validation
 | `GET /public/countries/:countryCode/emergency-operations` | Return minimal details for active operations in the supplied country only.       |
 | `POST /public/countries/:countryCode/help-requests`       | Validate and submit one request for an active operation in the supplied country. |
 
-The public operation list includes only `id`, operation code, name, country code, affected regions, and active status. It does not expose shelters, capacity, staffing, notes, internal identifiers beyond the operation ID needed for the form, or administrative contact data.
+The public operation list includes only `id`, operation code, name, country code, and affected regions. It selects active operations, but does not return a status field. It does not expose shelters, capacity, staffing, notes, internal identifiers beyond the operation ID needed for the form, or administrative contact data.
 
 For creation, the service must verify in one controlled write path that:
 
@@ -119,7 +141,7 @@ Checkpoint 5 and is not a production non-enumerating contract.
 | ------------------------------------------------------ | ------------------------------------------------------------------------ |
 | `GET /emergency-operations/:operationId/help-requests` | Return a paginated, stable, protected list of requests for an operation. |
 
-The protected queue is scoped through the operation's organization. It initially lists `PENDING_REVIEW` requests with the requester's minimum operational contact details and submission time. It must not expose cross-organization records.
+The protected queue is scoped to the requested operation and initially lists `PENDING_REVIEW` requests with operational contact details and submission time. Current ADMIN access is application-wide; the queue does not enforce organization membership or tenant isolation.
 
 ## UI boundary
 
@@ -166,7 +188,7 @@ reservation, or status-transition behaviour.
 
 **Acceptance:** A person can submit a valid country-scoped request without login, while public endpoints disclose only intentional information.
 
-**Status:** Complete
+**Status:** Implemented; rate limiting and its originally requested coverage remain deferred.
 
 **Implementation record:**
 
@@ -189,7 +211,9 @@ has been received. Emergency staff will review it.` That acknowledgement
   private to later controlled workflows. From Checkpoint 4A, the complete
   acknowledgement response is stored in `help_request_idempotency` only to
   replay a retry with the same `Idempotency-Key`; it cannot be used to look up
-  a help request or reveal whether an email was previously submitted. A
+  a help request. At this checkpoint the response did not reveal whether an
+  email had previously been submitted; Checkpoint 5 introduced the documented
+  short-reference distinction. A
   duplicate does not read, create, or modify the existing request.
 - Focused service and isolated PostgreSQL HTTP tests cover public listing,
   request validation, country and lifecycle checks, duplicate-safe
@@ -203,7 +227,7 @@ has been received. Emergency staff will review it.` That acknowledgement
 - Add the operation-scoped paginated queue read model.
 - Add focused API and isolated PostgreSQL tests for stable ordering, pagination, operation/organization scoping, empty state, and protected access.
 
-**Acceptance:** An authorized operator can see only the pending requests for their operation.
+**Acceptance:** A current global ADMIN can see requests for the specified operation, pending by default; the implemented optional status filter also permits other known statuses. Organization-membership authorization remains deferred.
 
 **Status:** Complete
 
@@ -263,8 +287,10 @@ Idempotency-Key: <UUID>
   calculated from a canonical normalized request representation.
 - Normalized-email uniqueness remains an independent business rule and
   database-level concurrency safeguard.
-- The public acknowledgement stays non-enumerating and never exposes an
-  earlier help request.
+- The acknowledgement never returns an earlier help request. The later
+  Checkpoint 5 contract can reveal prior email use because a new request
+  receives a short reference and a different-key duplicate does not; it is
+  therefore not non-enumerating.
 
 #### 4A. Database-backed idempotent public intake
 
@@ -311,8 +337,8 @@ changed payload, and both concurrent submission paths.
   short PostgreSQL transaction. Replays and duplicate-email acknowledgements
   that create no help request create no event.
 - `outbox_events` stores an identifier-only payload with `outboxEventId` and
-  `helpRequestId`; it never stores requester data or other PII. Events are
-  persisted only and are not yet published.
+  `helpRequestId`; it never stores requester data or other PII. At this
+  checkpoint events were persisted only; Checkpoint 4C added publication.
 - Focused isolated PostgreSQL tests verify first creation, replay,
   duplicate-email acknowledgement, and an induced outbox-insert failure that
   leaves no partial help request, idempotency record, or event committed.

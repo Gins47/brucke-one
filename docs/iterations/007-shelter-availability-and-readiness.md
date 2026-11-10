@@ -1,7 +1,25 @@
 # Iteration 007 — Shelter Availability and Operational Readiness
 
-**Status:** Complete
+**Status:** Implemented; shelter-capacity consistency and concurrency verification gaps identified
 **Prerequisites:** Iterations 001–006 accepted; shelters, emergency operations, shelter activations, dashboard read APIs, and development authentication are available.
+
+## Current checkpoint assessment
+
+**Reconciled:** 2026-11-10. See the [status definitions](README.md). Existing acceptance is preserved, with a qualification to earlier concurrency-coverage claims.
+
+| Checkpoint | Current status | Code and coverage evidence |
+| --- | --- | --- |
+| 1 — Schema/migration/constraints | Implemented | [Migration](../../apps/api/drizzle/20261023203918_serious_doctor_octopus/migration.sql) and [constraint tests](../../apps/api/test/shelter-activation-availability-constraints.e2e-spec.ts) cover one-to-one ownership, deletion, and numeric bounds. |
+| 2 — Availability API/concurrency | Partially satisfied; capacity consistency and concurrent database test missing | [Service](../../apps/api/src/shelter-activation-availability/shelter-activation-availability.service.ts) locks activation, operation, shelter, and existing report during availability writes. [Shelter updates](../../apps/api/src/shelters/shelters.service.ts) can subsequently lower physical capacity without checking the existing report. [Service tests](../../apps/api/src/shelter-activation-availability/shelter-activation-availability.service.spec.ts) simulate changed-parent handling; [HTTP tests](../../apps/api/test/shelter-activation-availability.e2e-spec.ts) cover sequential lifecycle/capacity conflicts. Neither executes a real concurrent report/update or parent-transition race. |
+| 3 — Operation dashboard read model | Implemented | [Dashboard service](../../apps/api/src/dashboard/dashboard.service.ts) and [map tests](../../apps/api/test/dashboard-map.e2e-spec.ts) provide all-active availability, reported-only totals, and independent coordinate coverage. |
+| 4 — Shelter/dashboard UI | Implemented | Organization shelter reads, [shelter dashboard](../../apps/web/src/components/shelter-dashboard.tsx), [detail form](../../apps/web/src/components/shelter-detail.tsx), maps, and API/component tests exist. |
+| 5 — Final verification/documentation | Historically recorded; coverage qualification remains | Final summary and application READMEs exist. The required real concurrency path is not established by checked-in tests; no tests or browser flow were rerun here. |
+
+**Current consistency gap:** Updating a shelter's physical capacity does not check an existing availability report. Reducing capacity after a report can leave its operational capacity above the physical capacity. Availability writes validate the relationship, but the shelter update path does not maintain it. This is a source-based finding; it was not reproduced against a running database in this reconciliation.
+
+**Verification correction:** Concurrent-state conflict coverage below means a mocked service scenario, not a real PostgreSQL race. Database concurrency verification remains outstanding. Historical passing counts describe earlier runs only.
+
+**Decisions:** [Activation availability snapshots](../decisions/0007-activation-availability-snapshots.md).
 
 ## Goal
 
@@ -149,7 +167,7 @@ Existing loading, error, authentication-expiry, selected-organization, responsiv
 
 **Acceptance:** The API reports truthful availability, does not over-allocate under concurrent writes, and returns established error contracts.
 
-**Status:** Complete
+**Status:** Partially satisfied; physical-capacity updates can invalidate a report, and a real concurrent PostgreSQL test remains outstanding.
 
 **Implementation record:**
 
@@ -167,9 +185,10 @@ Existing loading, error, authentication-expiry, selected-organization, responsiv
   a parent transition that wins first is observed as a `409` conflict.
 - Focused service and isolated PostgreSQL HTTP tests cover creation,
   replacement, not-reported history, strict validation, capacity conflicts,
-  inactive/terminal parents, derived values, and concurrent-state conflict
-  handling. The isolated test database is migrated and removed by its normal
-  lifecycle.
+  inactive/terminal parents, and derived values. The mocked service test covers
+  changed-parent conflict handling; the checked-in tests do not execute a real
+  concurrent PostgreSQL update or parent-transition race. The isolated test
+  database is migrated and removed by its normal lifecycle.
 
 ### 3. Operation dashboard read model
 

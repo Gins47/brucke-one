@@ -1,9 +1,25 @@
 # Iteration 001 — Project Foundation
 
 **Project:** BruckeOne  
-**Status:** Planned / partially initialized  
+**Status:** Implemented foundation; Checkpoint 1 partially complete
+
 **Implementation agent:** Codex  
 **Review:** Checkpoint-by-checkpoint, with user approval
+
+## Current checkpoint assessment
+
+**Reconciled:** 2026-11-10 from checked-in code and configuration. See the [status definitions](README.md). Later acceptance is recorded by Iteration 008; the remaining foundation discrepancies below are not treated as resolved by that acceptance.
+
+| Checkpoint | Current status | Evidence and remaining work |
+| --- | --- | --- |
+| 1 — Inspect and verify foundation | Partial; environment verification pending | [Compose](../../docker-compose.yaml) and [vector initialization](../../infra/postgresql/init.sql) exist. Development PostgreSQL still publishes `5432:5432` rather than localhost only and has no health check. Container health, installed extension, and application startup were not verified in this reconciliation. |
+| 2 — Database module and migration tooling | Implemented | Explicit [DatabaseModule](../../apps/api/src/database/database.module.ts), shared pool, startup `SELECT 1`, transaction helper, shutdown cleanup, [Drizzle configuration](../../apps/api/drizzle.config.ts), and migration scripts exist. [Database integration coverage](../../apps/api/test/database.e2e-spec.ts) checks connection, transaction, and pool closure. |
+
+**Implementation detail:** Configuration uses `dotenv` and project-owned functions, not `@nestjs/config`. No additional configuration dependency is needed to satisfy the implemented behavior. The PostgreSQL health check and localhost binding exist in [test Compose](../../apps/api/test/docker-compose.test.yaml), not in development Compose.
+
+**Verification boundary:** This is a source assessment, not a fresh runtime verification. Persistent database contents and applied migrations cannot be established from code. No development database or volume was changed.
+
+**Decisions:** [API and persistence](../decisions/0001-api-and-persistence-foundation.md).
 
 ## Goal
 

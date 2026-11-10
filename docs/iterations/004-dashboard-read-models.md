@@ -1,9 +1,26 @@
 # Iteration 004 — Dashboard Read Models
 
-**Status:** Complete
+**Status:** Implemented; historical query-plan verification recorded
 **Goal:** Provide read-only, dashboard- and map-ready API projections over the existing operational domain.
 
 This iteration prepares the API for a future web dashboard and LangGraph AI service. It does not introduce a frontend, AI service, authentication, caching, or new domain write workflows.
+
+## Current checkpoint assessment
+
+**Reconciled:** 2026-11-10. See the [status definitions](README.md). Source and historical verification records were inspected; no queries or tests were executed.
+
+| Checkpoint | Current status | Evidence and qualification |
+| --- | --- | --- |
+| 1 — Dashboard module foundation | Implemented | [Dashboard module](../../apps/api/src/dashboard/) owns explicit read DTOs and projections, registered in AppModule; it does not call domain command services. |
+| 2 — Organization overview | Implemented | Aggregate queries in [DashboardService](../../apps/api/src/dashboard/dashboard.service.ts); empty/populated and not-found [HTTP coverage](../../apps/api/test/dashboard.e2e-spec.ts). |
+| 3 — Cursor-paginated operations | Implemented | Strict limit/status/cursor DTOs and keyset query; multi-page [HTTP coverage](../../apps/api/test/dashboard-operations.e2e-spec.ts). |
+| 4 — Operation map projection | Implemented; extended in 007 | Current regions and active shelters with mapped/unmapped coverage; [HTTP coverage](../../apps/api/test/dashboard-map.e2e-spec.ts). Iteration 007 added all-active availability rows and reported-only totals. |
+| 5 — Query review/performance | Historically verified on small fixtures | Recorded plans support the original no-new-index decision. The query has since gained availability projections; this is not a fresh plan review or production-scale evidence. |
+| 6 — Iteration completion | Historically recorded; implementation present | Final summary and [API README](../../apps/api/README.md) document delivery; test suites remain checked in. Historical passing checks were not rerun. |
+
+**Later changes:** Authentication arrived in 005, the web UI in 006, and shelter availability/organization shelter reads in 007. Original deferrals below are historical.
+
+**Decisions:** [Dashboard projections and pagination](../decisions/0004-dashboard-read-projections.md).
 
 ## Architecture decisions
 

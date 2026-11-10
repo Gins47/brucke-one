@@ -1,7 +1,24 @@
 # Iteration 006 — Operations Dashboard UI
 
-**Status:** Complete
+**Status:** Implemented; manual browser and live-map verification pending
 **Prerequisites:** Iterations 001–005 completed; the Nest API and development admin login work locally.
+
+## Current checkpoint assessment
+
+**Reconciled:** 2026-11-10. See the [status definitions](README.md). Existing acceptance is preserved; manual verification is not inferred from automated coverage.
+
+| Checkpoint | Current status | Code and coverage evidence |
+| --- | --- | --- |
+| 1 — Frontend foundation/layout | Implemented | [Next.js app](../../apps/web/src/app/), [dashboard shell](../../apps/web/src/components/dashboard-shell.tsx), styles, and local UI configuration exist. |
+| 2 — Login/organization selection | Implemented | [Session provider](../../apps/web/src/components/session-provider.tsx), [session helpers](../../apps/web/src/lib/session-state.ts), typed client, routes, and corresponding tests exist. |
+| 3 — Dashboard/overview | Implemented | [Overview](../../apps/web/src/components/dashboard-overview.tsx) and [tests](../../apps/web/src/components/dashboard-overview.spec.tsx) use API contracts and invalidate stale responses. |
+| 4 — Shelters/operations | Implemented; shelter reads superseded by 007 | [Operations table](../../apps/web/src/components/operations-table.tsx) and tests cover filters/cursors. Current [shelter dashboard](../../apps/web/src/components/shelter-dashboard.tsx) uses organization dashboard reads instead of browser filtering of global data. |
+| 5 — Operation detail/map | Implemented | [Operation detail](../../apps/web/src/components/operation-detail.tsx), [maps](../../apps/web/src/components/maps/), and tests cover scoped responses, markers, unmapped counts, and fallbacks. |
+| 6 — Final verification/documentation | Automated checks historically recorded; manual checks pending | [Web README](../../apps/web/README.md) and final record exist. Desktop/mobile walkthrough and live tile availability remain unverified; no tests or browser checks were rerun here. |
+
+**Later changes:** Iteration 007 added writable availability forms and replaced initial occupancy placeholders with reported values. Original records below describe each checkpoint at delivery time.
+
+**Decisions:** [Web dashboard, sessions, and maps](../decisions/0006-web-dashboard-sessions-and-maps.md).
 
 ## Goal
 
@@ -147,7 +164,7 @@ These paths are documentation only for now. Their routes and links are introduce
 - Document setup, API URL/CORS, tile source/attribution, authentication limitations, unpaginated list limitations and intentionally deferred work.
 - Mark the iteration complete only after checks and review findings are resolved.
 
-**Status:** Complete
+**Status:** Automated verification and acceptance historically recorded; browser walkthrough and live-tile checks remain unverified.
 
 **Verification and acceptance record:**
 

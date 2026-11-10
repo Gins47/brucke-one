@@ -1,7 +1,23 @@
 # Iteration 005 — Development Admin Authentication
 
-**Status:** Complete
+**Status:** Implemented — development ADMIN authentication only
 **Prerequisite:** Iterations 001–004 complete
+
+## Current checkpoint assessment
+
+**Reconciled:** 2026-11-10. See the [status definitions](README.md). Current code and coverage were inspected; tests were not rerun.
+
+| Checkpoint | Current status | Code and coverage evidence |
+| --- | --- | --- |
+| 1 — Schema and migration | Implemented | [Identity migration](../../apps/api/drizzle/20261019072515_famous_vapor/migration.sql) and [constraint tests](../../apps/api/test/identity-constraints.e2e-spec.ts) establish normalized usernames, global roles, and unique assignments. |
+| 2 — Development admin bootstrap | Implemented | [Service](../../apps/api/src/auth/admin-bootstrap.service.ts) and [tests](../../apps/api/test/admin-bootstrap.e2e-spec.ts) cover opt-in, idempotence, concurrent creation, and non-admin rejection. |
+| 3 — Login and JWT | Implemented | [Auth module](../../apps/api/src/auth/) and [HTTP tests](../../apps/api/test/auth.e2e-spec.ts) cover Argon2id login, token verification, invalid credentials/claims, and configuration failures. |
+| 4 — Protect existing routes | Implemented; public exceptions added in 008 | [Global guard](../../apps/api/src/auth/admin-authorization.guard.ts), [authorization tests](../../apps/api/test/authorization.e2e-spec.ts), and public-intake tests establish the current boundary. |
+| 5 — Final review/documentation | Historically recorded; documentation present | Final summary and [API README](../../apps/api/README.md) state the development-only access and missing production identity features. |
+
+**Scope clarification:** Despite this file's legacy name, organization memberships and organization-level authorization are not implemented. Login and the explicitly exempted public help-request routes are public; other existing API routes require a current ADMIN assignment.
+
+**Decisions:** [Development authentication](../decisions/0005-development-admin-authentication.md).
 
 ## Goal and boundaries
 

@@ -22,4 +22,10 @@ AI can help collect information and explain outcomes, but it never controls shel
 
 This is a focused local-organization PoC, not a replacement for government emergency systems or emergency services. Medical triage, autonomous dispatch, inventory logistics, public alerts, and broad multi-agent automation are outside the initial scope.
 
-See [the V1 product scope](docs/product/v1-scope.md) for the detailed product boundary. Setup instructions and technical documentation will be added as the project evolves.
+See [the V1 product scope](docs/product/v1-scope.md) for the detailed product boundary.
+
+## Getting started
+
+Start with the [documentation guide](docs/README.md) and [project status](docs/status.md). Coding agents should also read [AGENTS.md](AGENTS.md) and the [project process](docs/development/project-process.md), including skill selection.
+
+Local setup instructions are in the [API README](apps/api/README.md) and [web README](apps/web/README.md). The [tech stack](docs/architecture/tech-stack.md) and [coding standards](docs/development/code-standards.md) describe the current development conventions.

@@ -1,8 +1,23 @@
 # Iteration 002 — Core Domain Data Model
 
 **Project:** BruckeOne  
-**Status:** Implemented; awaiting review
+**Status:** Schema implemented; required constraint-test coverage partial
 **Goal:** Define and implement the core operational database model for organizations, emergency operations, shelters, shelter activations, and affected regions.
+
+## Current checkpoint assessment
+
+**Reconciled:** 2026-11-10. Later acceptance is recorded in Iteration 008; this assessment distinguishes source evidence from historical process records. See the [status definitions](README.md). Tests were inspected, not rerun.
+
+| Checkpoint | Current status | Evidence and remaining work |
+| --- | --- | --- |
+| 1 — Review and approve document | Historically recorded | The original checklist records approval; Iteration 008 lists iterations 001–007 as accepted. Code cannot establish a new approval. |
+| 2 — Schemas and migration | Implemented | [Schemas](../../apps/api/src/database/schema/) and the [core migration](../../apps/api/drizzle/20261012122205_past_swordsman/migration.sql) define composite organization foreign keys, partial uniqueness, and numeric/time checks. Organizations were introduced in a preceding migration. |
+| 3 — Inspect SQL before application | Historically recorded | The original checklist records SQL inspection; current SQL does not prove the historical review event. |
+| 4 — Apply to local development database | Historically recorded; environment unverified | The original checklist records application. No persistent database was inspected or migrated in this reconciliation. |
+| 5 — All required constraint tests | Partial coverage | [Core constraint tests](../../apps/api/test/core-domain-constraints.e2e-spec.ts) cover cross-organization activation, sequential active-activation uniqueness, current-region uniqueness/reuse, and operation timeline checks. [Activation HTTP tests](../../apps/api/test/shelter-activations.e2e-spec.ts) cover valid activation and historical reuse. Direct database tests for missing organization references, invalid shelter capacity/coordinates, and concurrent active-activation inserts are absent. HTTP validation tests do not replace these database tests. |
+| 6 — Stop for review | Historically recorded | Later delivery moved on to Iteration 003; no new acceptance is inferred here. |
+
+**Decisions:** [Historical domain integrity](../decisions/0002-historical-domain-integrity.md).
 
 ## Starting point
 
@@ -221,7 +236,7 @@ Rules:
 2. [x] Implement Drizzle schemas and generate one reviewed migration.
 3. [x] Inspect migration SQL before applying it.
 4. [x] Apply the migration only to the local development database.
-5. [x] Add and run integration tests for all listed constraints.
+5. [~] Add and run integration tests for all listed constraints. The earlier checklist marked this complete; the current assessment above identifies direct database cases not present in today's test suite.
 6. Stop for review before implementing controllers, DTOs, or services.
 
 Protocols and RAG knowledge base are deferred to a dedicated iteration.

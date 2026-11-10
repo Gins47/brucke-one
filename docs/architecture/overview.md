@@ -1,7 +1,7 @@
 # BruckeOne — Architecture Overview
 
 **Status:** Evolving target architecture  
-**Last reviewed:** 2026-10-11
+**Last reviewed:** 2026-11-10
 
 ## 1. Purpose and boundaries
 
@@ -21,26 +21,14 @@ The initial product scope is **one relief organization managing multiple emergen
 
 ## 3. Technology direction
 
-| Component             | Choice                                                         | Decision status                                     |
-| --------------------- | -------------------------------------------------------------- | --------------------------------------------------- |
-| Core backend          | NestJS / TypeScript                                            | Decided                                             |
-| Backend structure     | Modular monolith; stateless HTTP API                           | Decided                                             |
-| Operational database  | PostgreSQL 18                                                  | Decided                                             |
-| Vector capability     | pgvector (`pgvector/pgvector:0.8.6-pg18`)                      | Decided for local DB image; vector features planned |
-| SQL access            | Drizzle ORM + `pg` connection pool                             | Decided                                             |
-| Schema evolution      | Drizzle Kit migrations, SQL reviewed before application        | Decided                                             |
-| Local development     | Existing Docker Compose with PostgreSQL                        | Existing configuration; runtime must be verified    |
-| AI integration        | Separate Python / FastAPI service                              | Planned, not yet implemented                        |
-| Coordinator interface | Web UI; Next.js is a candidate                                 | Planned; framework not final                        |
-| Background processing | PostgreSQL-backed worker/outbox first when needed              | Planned; broker not yet selected                    |
-| Cloud / operations    | CI, staging, monitoring, backups, load tests, cloud deployment | Planned; provider/topology not final                |
+The [tech stack](tech-stack.md) owns the current technology inventory and separates implemented choices from planned integrations. The [project status](../status.md) owns acceptance and outstanding verification. The current system includes the NestJS API, Next.js dashboard, PostgreSQL, and a transactional outbox publisher using BullMQ/Redis. Worker business processing and the Python/FastAPI AI service remain deferred.
 
 ## 4. System context and component boundaries
 
 ```text
                   Coordinator / field users
                              |
-                     Web UI (planned)
+                     Next.js dashboard
                              |
                       HTTPS / REST
                              |
@@ -57,14 +45,16 @@ The initial product scope is **one relief organization managing multiple emergen
              PostgreSQL + pgvector             | read-only tools,
               source of truth                 | approved RAG, human review
                      |
-              Outbox / workers (planned)
+              Outbox -> BullMQ / Redis
+                     |
+                Workers (planned)
                      |
              Messaging / notifications (planned)
                      |
              External providers (planned)
 ```
 
-The NestJS API owns business rules and writes authoritative operational data. The planned AI service must not bypass authorization or directly mutate operational records without an approved API workflow. No message broker, AI service, or web UI is required to complete the current foundation work.
+The NestJS API owns business rules and writes authoritative operational data. Public help-request endpoints also enter through this API. The outbox publisher enqueues committed events; enqueueing does not mean business processing. The planned AI service must not bypass authorization or directly mutate operational records without an approved API workflow.
 
 ## 5. Domain model and ownership
 
@@ -98,7 +88,7 @@ Exact schemas, country-neutral geographies, and permissions remain design tasks;
 - UUIDs are internal primary keys; human-readable codes are separate business identifiers.
 - Prefer database constraints over pre-insert checks for uniqueness and concurrency guarantees.
 - Use short transactions for related writes and business invariants; do not hold database locks during external network calls.
-- For future reliable asynchronous processing, use a transactional outbox when an event must survive API crashes. Assume at-least-once publication and design idempotent consumers.
+- Help-request intake uses a transactional outbox so its event survives API crashes. Assume at-least-once publication and design future consumers to be idempotent.
 - For future external notifications, distinguish broker acceptance, provider acceptance, and recipient delivery. Do not claim exactly-once external effects without provider support.
 - Define authorization, audit retention, and sensitive-data handling before collecting real resident data.
 
@@ -119,17 +109,21 @@ Application schema changes are applied via reviewed Drizzle migrations, not auto
 
 ## 9. Open architecture decisions
 
-- Authentication, role-based/organization-scoped authorization, and personal-data retention.
+- Production authentication, organization-scoped authorization, and personal-data retention beyond the existing development ADMIN model.
 - Geographic hierarchy, GPS/landmark handling, and offline sync conflict resolution.
 - Capacity accounting, reservations, and inventory unit semantics.
-- Notification provider, broker selection, and delivery reconciliation policies.
+- Notification provider, production queue operations, and delivery reconciliation policies beyond the current BullMQ publisher.
 - AI model/provider, retrieval/evaluation design, and permitted tool actions.
-- Web framework, cloud hosting, resilience targets, and deployment topology.
+- Cloud hosting, resilience targets, and deployment topology.
 
 ## 10. Documentation authority
 
+- `docs/README.md`: Documentation entry point and task routing.
+- `docs/status.md`: Current delivery state, selected checkpoint, and outstanding verification.
+- `docs/architecture/tech-stack.md`: Current technologies and planned integrations.
+- `docs/development/`: Coding standards, project process, and skill-selection guidance.
 - `docs/architecture/overview.md`: Target architecture, principles, boundaries, and open decisions.
-- `docs/decisions/`: Accepted architecture decision records (ADRs).
+- `docs/decisions/`: Retrospective decision records, each marked with its scope and acceptance status.
 - `docs/iterations/`: Approved scope, checkpoint acceptance criteria, and implementation progress.
 - `AGENTS.md` and `apps/api/AGENTS.md`: Stable Codex working instructions, not checkpoint status.
 - Repository code and migration history: What is actually implemented.

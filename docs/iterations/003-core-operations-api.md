@@ -1,8 +1,25 @@
 # Iteration 003 — Core Operations API
 
 **Project:** BruckeOne  
-**Status:** Checkpoint 6 complete; awaiting review
+**Status:** Implemented; later acceptance recorded in Iteration 008
 **Goal:** Implement the V1 REST API for the core operational domain using NestJS modules, typed DTO validation, focused services, and focused HTTP/database tests.
+
+## Current checkpoint assessment
+
+**Reconciled:** 2026-11-10 against current controllers, DTOs, services, and test sources. See the [status definitions](README.md). Tests were inspected, not rerun.
+
+| Checkpoint | Current status | Code and coverage evidence |
+| --- | --- | --- |
+| 1 — API foundation | Implemented | [ZodValidationPipe](../../apps/api/src/common/validation/zod-validation.pipe.ts) and its unit tests; strict DTO schemas and UUID route validation. |
+| 2 — Organizations API | Implemented | [Module](../../apps/api/src/organizations/) and [HTTP tests](../../apps/api/test/organizations.e2e-spec.ts) cover creation, uniqueness, reads, partial updates, and immutable code. |
+| 3 — Emergency Operations API | Implemented | [Module](../../apps/api/src/emergency-operations/) and [HTTP tests](../../apps/api/test/emergency-operations.e2e-spec.ts) implement CRUD without deletion and explicit lifecycle commands. |
+| 4 — Shelters API | Implemented | [Module](../../apps/api/src/shelters/) and [HTTP tests](../../apps/api/test/shelters.e2e-spec.ts) cover capacity, paired coordinates, immutable fields, and partial updates. |
+| 5 — Shelter Activation workflows | Implemented | [Module](../../apps/api/src/shelter-activations/) and [HTTP tests](../../apps/api/test/shelter-activations.e2e-spec.ts) implement same-organization activation, active-operation checks, deactivation, and historical reuse. |
+| 6 — Affected-region workflows | Implemented | [Module](../../apps/api/src/operation-affected-regions/) and [HTTP tests](../../apps/api/test/operation-affected-regions.e2e-spec.ts) implement current-region listing and logical removal/reuse. |
+
+**Later changes:** Iteration 005 added authentication to these routes; Iteration 008 added narrowly public routes elsewhere. Exclusions below describe the original delivery boundary, not today's full application. Exact installed versions belong to manifests and lockfiles.
+
+**Decisions:** [API contracts](../decisions/0003-explicit-api-contracts.md) and [historical domain integrity](../decisions/0002-historical-domain-integrity.md).
 
 ## Preconditions
 
