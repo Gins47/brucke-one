@@ -2,8 +2,9 @@
 
 **Last updated:** 2026-11-11
 
-**Latest accepted iteration:** [008 — Public Help-Request Intake](iterations/008-public-help-request-intake.md)  
-**Active implementation checkpoint:** [Iteration 009, Checkpoint 3](iterations/009-manual-shelter-assignment.md#checkpoint-3--operator-dashboard) implemented and verified; review and acceptance pending. Checkpoint 2 is accepted for the synthetic demo. Do not start another checkpoint without an explicit user request.
+**Latest accepted iteration:** [009 — Manual Shelter Assignment](iterations/009-manual-shelter-assignment.md)
+
+**Active implementation checkpoint:** None. Iteration 009 was accepted by the user for the synthetic-data demo; no new checkpoint is selected.
 
 ## Delivered capabilities
 
@@ -26,6 +27,7 @@ The [final acceptance record](iterations/008-public-help-request-intake.md#7-fin
 - Some original direct PostgreSQL constraint tests are missing, including concurrent active-activation inserts; see [Iteration 002](iterations/002-core-domain.md).
 - Concurrent assignment and availability attempts are tested without guaranteeing contention at a specific lock. Deterministic tests for competing assignments, assignment versus availability PUT, and parent closure remain follow-up work before real-world use.
 - The shelter API now rejects physical-capacity decreases. Reports made inconsistent before that guard existed may still require correction before assignment.
+- Iteration 009: the user verified the synthetic dashboard walkthrough and accepted the iteration. A separate follow-up review of the two prior Checkpoint 3 fixes is not recorded. See the [verification record](iterations/009-manual-shelter-assignment.md#checkpoint-4--final-verification-and-demo-documentation).
 - Desktop/mobile browser walkthrough and live map-tile checks remain unverified; see [Iteration 006](iterations/006-operations-dashboard-ui.md).
 - Real Redis/BullMQ and manual Redis Insight verification remain pending; see [Checkpoint 4C](iterations/008-public-help-request-intake.md#4c-bullmq-outbox-publisher).
 - BullMQ worker processing remains deferred.
@@ -34,7 +36,7 @@ The [final acceptance record](iterations/008-public-help-request-intake.md#7-fin
 
 ## Future work — not authorized
 
-Iteration 009's manual assignment dashboard awaits review and final synthetic demo verification. Automatic matching, geocoding, QR/check-in, notifications, AI, and business processing of queue jobs remain future work.
+Automatic matching, geocoding, QR/check-in, notifications, AI, and business processing of queue jobs remain future work.
 
 ## Maintenance
 

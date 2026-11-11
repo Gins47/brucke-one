@@ -10,8 +10,9 @@ Iteration files preserve their original scope, implementation records, and accep
 | [004 — Dashboard read models](004-dashboard-read-models.md) | Implemented; historical query review used small fixtures. |
 | [005 — Development admin authentication](005-identity-and-organization-authorization.md) | Implemented for a global development ADMIN; tenant isolation deferred. |
 | [006 — Operations dashboard UI](006-operations-dashboard-ui.md) | Implemented; desktop/mobile walkthrough and live-tile checks remain unverified. |
-| [007 — Shelter availability and readiness](007-shelter-availability-and-readiness.md) | Implemented; physical-capacity updates can invalidate reports and a real concurrent database test remains outstanding. |
+| [007 — Shelter availability and readiness](007-shelter-availability-and-readiness.md) | Implemented; the later physical-capacity decrease guard exists, while pre-existing inconsistent reports and deterministic concurrent testing remain outstanding. |
 | [008 — Public help-request intake](008-public-help-request-intake.md) | Backend scope accepted; real Redis verification pending, worker deferred. |
+| [009 — Manual shelter assignment](009-manual-shelter-assignment.md) | Complete; accepted by the user for the synthetic demo after the user-reported dashboard walkthrough. A separate follow-up review of the Checkpoint 3 fixes is not recorded. |
 
 ## Status definitions
 

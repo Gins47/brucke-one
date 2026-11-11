@@ -1,6 +1,6 @@
 # Iteration 009 — Manual Shelter Assignment
 
-**Status:** Planned
+**Status:** Complete — accepted by the user for the synthetic-data demo
 
 **Purpose:** Allow a development administrator to review a pending help request
 and manually assign it to an eligible shelter associated with the request’s
@@ -287,8 +287,8 @@ when the operator submits.
 **Acceptance:** An operator can perform and confirm a manual assignment
 through the dashboard using synthetic data.
 
-**Implementation record (2026-11-11):** Implemented and verified; review and
-acceptance pending. The operator can page through pending or reserved requests,
+**Implementation record (2026-11-11):** Implemented and verified; subsequently
+accepted by the user for the synthetic demo. The operator can page through pending or reserved requests,
 review requests in a responsive table or list, open a review-and-assign dialog,
 select an eligible active shelter including unmapped shelters, and see the
 server-confirmed assignment. Uncertain submission outcomes retain the selected
@@ -303,8 +303,9 @@ and reservation lock, discards unsaved edits, and requires operator review.
 
 Frontend verification: 14 test files and 45 tests passed, including focused
 modal, assignment, conflict-recovery, and stale-response tests; frontend lint
-and build passed. Manual browser verification of the refined layout is pending. The final
-synthetic end-to-end walkthrough and iteration verification remain Checkpoint 4.
+and build passed. The user later reported manually verifying the synthetic
+dashboard assignment flow; see the Checkpoint 4 record. The user subsequently
+accepted the iteration based on the working operator flow.
 
 ### Checkpoint 4 — Final verification and demo documentation
 
@@ -316,6 +317,37 @@ synthetic end-to-end walkthrough and iteration verification remain Checkpoint 4.
 
 **Acceptance:** The demo can be reproduced without presenting it as a live
 emergency service or claiming that a notification was delivered.
+
+**Status:** Complete, accepted by the user for the synthetic-data demo.
+
+**Verification record (2026-11-11):** Automated checks passed with Node
+24.22.0: API unit tests (15 suites, 71 tests), isolated PostgreSQL E2E (24
+suites, 168 tests), frontend tests (14 files, 45 tests), API and web builds,
+non-mutating lint, and Drizzle check. API E2E forced-failure logs came from
+rollback tests. The initial sandboxed API unit run was blocked by local socket
+permissions; the rerun with socket access passed.
+
+A synthetic API walkthrough against dedicated disposable PostgreSQL, Redis,
+and API processes returned `201` for intake and assignment. The pending and
+reserved queue responses were checked, and both the availability response and
+dashboard projection showed three reserved and five available places, with
+occupancy unchanged at two. The disposable services were removed afterward.
+
+**User-reported manual dashboard verification:** The user verified the
+[synthetic demo guide](../development/manual-assignment-demo.md) flow: login,
+finding a synthetic request under Pending review, assigning a shelter, and
+seeing the reserved request and updated shelter availability. This is the
+user's report; the agent did not perform the browser walkthrough.
+
+An earlier agent browser attempt was blocked by unavailable browser access,
+Chrome computer-use approval, and an existing Next.js development-server lock;
+no existing server or database was changed.
+
+A prior Checkpoint 3 review identified two availability-refresh findings. The
+subsequent implementation record describes their fixes. The project records do
+not establish a separate follow-up review of those fixes. The user explicitly
+accepted Iteration 009 as complete after verifying the dashboard operator flow;
+this acceptance does not claim a follow-up review was performed.
 
 ## 8. Focused test expectations
 
