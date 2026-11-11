@@ -51,7 +51,8 @@ npm run build
 - `/operations` — selected-organization operations with status filters and
   cursor-based Load more pagination.
 - `/operations/[operationId]` — operation details, current affected regions,
-  active shelter locations, and the unmapped active-shelter count.
+  active shelter locations, the unmapped active-shelter count, and a Help
+  requests tab with pending and reserved queues and manual shelter assignment.
 
 The operation map uses OpenStreetMap standard tiles with visible attribution
 and requires network access to the tile service. A failed Leaflet load shows a
@@ -72,9 +73,8 @@ application-wide ADMIN role; it is not organization-level isolation. Tokens
 and selected organizations are held only in memory, and logout does not revoke
 an already issued token.
 
-Apart from complete availability reports for active shelter activations, the
-UI does not implement write actions, persistent sessions, refresh tokens,
+The UI supports availability reporting and manual shelter assignment for
+synthetic data. It does not implement persistent sessions, refresh tokens,
 region boundaries, historical map reconstruction, map clustering, or viewport
-search. Weather, occupancy, operations teams, people seeking help, support
-units, and approvals are intentionally shown as unavailable until their API
-data and workflows exist.
+search. Weather, operations teams, support units, and approvals remain
+unavailable.

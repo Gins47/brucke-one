@@ -250,8 +250,8 @@ rerun after the rename.
 **Acceptance:** An authorized ADMIN can assign a pending request to a valid
 activation without double-assignment or over-reservation.
 
-**Implementation record (2026-11-11):** Implemented; review and acceptance
-pending. The protected endpoint returns `201` for a new assignment and `200`
+**Implementation record (2026-11-11):** Implemented and accepted for the synthetic
+demo after review and verification. The protected endpoint returns `201` for a new assignment and `200`
 for a same-activation replay. The protected RESERVED queue includes assignment
 and shelter identity. A transaction locks the request, activation, operation,
 shelter, and availability in that order. The availability PUT uses the same
@@ -259,15 +259,16 @@ parent lock order, while shelter capacity decreases are rejected atomically.
 The assignment does not update occupancy or report timestamps. The API README
 describes the contract and limitations.
 
-Focused isolated PostgreSQL tests cover reservations, replay, competition,
-stale/concurrent reports, invalid eligibility, the capacity guard, and forced
-transaction rollback. The full isolated E2E suite passed with 24 suites and
-167 tests. Assignment versus parent closure was not directly race-tested. No
-development migration was applied.
+Focused isolated PostgreSQL tests exercise concurrent assignment and availability
+attempts, but do not guarantee that transactions overlap at a particular lock.
+Deterministic contention tests for competing assignments, availability PUT, and
+parent closure remain follow-up work before real-world use. The full isolated
+API E2E suite passed on the reviewed code with 24 suites and 168 tests; API
+build and non-mutating lint also passed. No development migration was applied.
 
 ### Checkpoint 3 — Operator dashboard
 
-In the emergency operation’s “People seeking help” tab:
+In the emergency operation’s “Help requests” tab:
 
 - load pending requests using the existing paginated queue API;
 - show the information an operator needs for review;
@@ -285,6 +286,25 @@ when the operator submits.
 
 **Acceptance:** An operator can perform and confirm a manual assignment
 through the dashboard using synthetic data.
+
+**Implementation record (2026-11-11):** Implemented and verified; review and
+acceptance pending. The operator can page through pending or reserved requests,
+review requests in a responsive table or list, open a review-and-assign dialog,
+select an eligible active shelter including unmapped shelters, and see the
+server-confirmed assignment. Uncertain submission outcomes retain the selected
+shelter for a safe replay. The queue and shelter projection are
+refreshed after assignment or conflict. Assignment-owned reserved places are
+read-only in the availability form; if the ownership check fails, the field
+remains read-only. The API remains authoritative.
+
+After assignment, the operation shelter projection reloads before showing capacity;
+a failed reload is clearly reported. An availability conflict reloads the report
+and reservation lock, discards unsaved edits, and requires operator review.
+
+Frontend verification: 14 test files and 45 tests passed, including focused
+modal, assignment, conflict-recovery, and stale-response tests; frontend lint
+and build passed. Manual browser verification of the refined layout is pending. The final
+synthetic end-to-end walkthrough and iteration verification remain Checkpoint 4.
 
 ### Checkpoint 4 — Final verification and demo documentation
 

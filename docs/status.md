@@ -3,7 +3,7 @@
 **Last updated:** 2026-11-11
 
 **Latest accepted iteration:** [008 — Public Help-Request Intake](iterations/008-public-help-request-intake.md)  
-**Active implementation checkpoint:** [Iteration 009, Checkpoint 2](iterations/009-manual-shelter-assignment.md#checkpoint-2--protected-assignment-api) implemented; review and acceptance pending. Do not start another checkpoint without an explicit user request.
+**Active implementation checkpoint:** [Iteration 009, Checkpoint 3](iterations/009-manual-shelter-assignment.md#checkpoint-3--operator-dashboard) implemented and verified; review and acceptance pending. Checkpoint 2 is accepted for the synthetic demo. Do not start another checkpoint without an explicit user request.
 
 ## Delivered capabilities
 
@@ -24,8 +24,8 @@ The [final acceptance record](iterations/008-public-help-request-intake.md#7-fin
 
 - Development PostgreSQL Compose publishes port 5432 without a localhost-only binding and has no health check. Current database health, pgvector installation, and applied migrations were not established by the documentation reconciliation; see [Iteration 001](iterations/001-project-foundation.md).
 - Some original direct PostgreSQL constraint tests are missing, including concurrent active-activation inserts; see [Iteration 002](iterations/002-core-domain.md).
-- Availability locking exists, but a real concurrent PostgreSQL report/update or parent-transition test is missing; see [Iteration 007](iterations/007-shelter-availability-and-readiness.md).
-- Reducing a shelter's physical capacity can leave an existing availability report above that capacity; the shelter update path does not check the report. This source-based finding is not yet reproduced in a live database; see [Iteration 007](iterations/007-shelter-availability-and-readiness.md).
+- Concurrent assignment and availability attempts are tested without guaranteeing contention at a specific lock. Deterministic tests for competing assignments, assignment versus availability PUT, and parent closure remain follow-up work before real-world use.
+- The shelter API now rejects physical-capacity decreases. Reports made inconsistent before that guard existed may still require correction before assignment.
 - Desktop/mobile browser walkthrough and live map-tile checks remain unverified; see [Iteration 006](iterations/006-operations-dashboard-ui.md).
 - Real Redis/BullMQ and manual Redis Insight verification remain pending; see [Checkpoint 4C](iterations/008-public-help-request-intake.md#4c-bullmq-outbox-publisher).
 - BullMQ worker processing remains deferred.
@@ -34,7 +34,7 @@ The [final acceptance record](iterations/008-public-help-request-intake.md#7-fin
 
 ## Future work — not authorized
 
-Iteration 009's manual assignment API and reservation safeguards are implemented, pending review; its dashboard remains future work, as do automatic matching, geocoding, QR/check-in, notifications, AI, and business processing of queue jobs.
+Iteration 009's manual assignment dashboard awaits review and final synthetic demo verification. Automatic matching, geocoding, QR/check-in, notifications, AI, and business processing of queue jobs remain future work.
 
 ## Maintenance
 

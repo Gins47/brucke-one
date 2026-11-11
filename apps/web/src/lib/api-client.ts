@@ -131,6 +131,33 @@ export type DashboardShelter = Omit<Shelter, 'organizationId' | 'createdAt' | 'u
   } | null;
 };
 
+export type HelpRequestAssignment = {
+  id: string;
+  helpRequestId: string;
+  emergencyOperationId: string;
+  shelterActivationId: string;
+  shelterId: string;
+  shelterName: string;
+  reservedGroupSize: number;
+  assignedByUserId: string;
+  createdAt: string;
+};
+
+export type OperatorHelpRequest = {
+  id: string;
+  requesterName: string;
+  requesterPhone: string;
+  requesterEmail: string | null;
+  groupSize: number;
+  locationDescription: string;
+  canTravelIndependently: boolean;
+  medicalSupportNeeded: boolean;
+  status: string;
+  assignment?: HelpRequestAssignment | null;
+};
+
+export type HelpRequestPage = { items: OperatorHelpRequest[]; nextCursor: string | null };
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -256,6 +283,20 @@ export function createApiClient(baseUrl: string, onUnauthorized: () => void) {
         },
       );
     },
+    /** Loads a page of pending or reserved requests for an operation. */
+    getOperatorHelpRequests: (accessToken: string, operationId: string, status: 'PENDING_REVIEW' | 'RESERVED', cursor?: string, signal?: AbortSignal) => {
+      const query = new URLSearchParams({ status });
+      if (cursor) query.set('cursor', cursor);
+      return request<HelpRequestPage>(`/emergency-operations/${operationId}/help-requests?${query}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }, signal,
+      });
+    },
+    /** Assigns a pending request to a selected shelter activation. */
+    assignHelpRequest: (accessToken: string, operationId: string, requestId: string, shelterActivationId: string, signal?: AbortSignal) =>
+      request<HelpRequestAssignment>(`/emergency-operations/${operationId}/help-requests/${requestId}/assignment`, {
+        method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shelterActivationId }), signal,
+      }),
     /** Loads the read-only map projection for one emergency operation. */
     getEmergencyOperationMap: (
       accessToken: string,

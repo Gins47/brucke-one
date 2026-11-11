@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { OperationMapPanel } from './maps/operation-map-panel';
+import { HelpRequestsTab } from './help-requests-tab';
 import {
   ApiError,
   type ApiClient,
@@ -17,15 +18,20 @@ type DetailState = {
 const detailTabs = [
   { id: 'shelters', label: 'Shelters' },
   { id: 'teams', label: 'Operations teams' },
-  { id: 'people', label: 'People seeking help' },
+  { id: 'people', label: 'Help requests' },
   { id: 'support', label: 'Support units' },
   { id: 'approvals', label: 'Approvals' },
 ] as const;
 
 type DetailTab = (typeof detailTabs)[number]['id'];
 
+/** Resets operation state when the session or selected scope changes. */
+export function OperationDetail(props: { accessToken: string; api: ApiClient; operationId: string; organizationId: string }) {
+  return <OperationDetailContent key={`${props.accessToken}:${props.organizationId}:${props.operationId}`} {...props} />;
+}
+
 /** Loads and displays a selected operation only when it belongs to the current organization. */
-export function OperationDetail({
+function OperationDetailContent({
   accessToken,
   api,
   operationId,
@@ -41,6 +47,27 @@ export function OperationDetail({
     data: null,
   });
   const [activeTab, setActiveTab] = useState<DetailTab>('shelters');
+  const [availabilityRefresh, setAvailabilityRefresh] = useState<'ready' | 'loading' | 'error'>('ready');
+  const refreshController = useRef<AbortController | null>(null);
+
+  useEffect(() => () => { refreshController.current?.abort(); }, [accessToken, api, operationId, organizationId]);
+
+  /** Refreshes the operation projection after a confirmed assignment. */
+  const refreshAvailability = async () => {
+    refreshController.current?.abort();
+    const controller = new AbortController();
+    refreshController.current = controller;
+    setAvailabilityRefresh('loading');
+    try {
+      const data = await api.getEmergencyOperationMap(accessToken, operationId, controller.signal);
+      if (controller.signal.aborted) return;
+      if (data.operation.id !== operationId || data.operation.organizationId !== organizationId) throw new Error('Operation scope changed');
+      setState({ status: 'ready', data });
+      setAvailabilityRefresh('ready');
+    } catch {
+      if (!controller.signal.aborted) setAvailabilityRefresh('error');
+    }
+  };
 
   /** Selects and focuses a neighboring tab for the standard arrow-key tab interaction. */
   const selectAdjacentTab = (
@@ -173,7 +200,7 @@ export function OperationDetail({
             : 'All active shelters have complete location data.'}
         </p>
         <div className="mt-4 grid gap-6 lg:grid-cols-2">
-          <OperationMapPanel shelters={activeShelters} />
+          {availabilityRefresh === 'ready' ? <OperationMapPanel shelters={activeShelters} /> : <p className="rounded-xl border border-slate-200 bg-white p-6">{availabilityRefresh === 'loading' ? 'Refreshing shelter availability…' : 'Shelter availability is unavailable.'}</p>}
           <aside className="rounded-xl border border-slate-200 bg-white p-6">
             <h3 className="text-lg font-bold text-slate-950">Weather</h3>
             <p className="mt-3 text-slate-600">Weather integration coming later.</p>
@@ -181,6 +208,7 @@ export function OperationDetail({
         </div>
       </section>
 
+      {availabilityRefresh === 'error' && <p role="alert" className="text-red-700">The assignment was confirmed, but shelter availability could not be refreshed. <button type="button" className="underline" onClick={() => void refreshAvailability()}>Retry refresh</button></p>}
       <section aria-labelledby="detail-tabs-heading">
         <h2 className="sr-only" id="detail-tabs-heading">Operation details</h2>
         <div aria-label="Operation detail sections" className="flex gap-2 overflow-x-auto border-b border-slate-200" role="tablist">
@@ -212,9 +240,9 @@ export function OperationDetail({
           role="tabpanel"
         >
           {activeTab === 'shelters' ? (
-            <SheltersTab
-              shelters={activeShelterAvailability}
-            />
+            availabilityRefresh === 'ready' ? <SheltersTab shelters={activeShelterAvailability} /> : <p className="text-slate-700">{availabilityRefresh === 'loading' ? 'Refreshing shelter availability…' : 'Shelter availability could not be refreshed.'}</p>
+          ) : activeTab === 'people' && operation.id === operationId && operation.organizationId === organizationId ? (
+            <HelpRequestsTab key={`${accessToken}-${organizationId}-${operationId}`} accessToken={accessToken} api={api} operationId={operationId} onAssignmentConfirmed={() => void refreshAvailability()} />
           ) : (
             <p className="rounded-xl border border-slate-200 bg-slate-50 p-5 text-slate-600">
               Not available yet.
@@ -274,6 +302,7 @@ function SheltersTab({
                 <th className="px-4 py-3 font-semibold" scope="col">Shelter</th>
                 <th className="px-4 py-3 font-semibold" scope="col">Operational capacity</th>
                 <th className="px-4 py-3 font-semibold" scope="col">Current occupancy</th>
+                <th className="px-4 py-3 font-semibold" scope="col">Reserved places</th>
                 <th className="px-4 py-3 font-semibold" scope="col">Available places</th>
                 <th className="px-4 py-3 font-semibold" scope="col">Status</th>
               </tr>
@@ -284,6 +313,7 @@ function SheltersTab({
                   <td className="px-4 py-3"><Link className="font-semibold text-blue-700 underline-offset-4 hover:underline" href={`/shelters/${shelter.shelterId}`}>{shelter.name}</Link></td>
                   <td className="px-4 py-3">{shelter.availability?.operationalCapacity ?? 'Not reported'}</td>
                   <td className="px-4 py-3">{shelter.availability?.currentOccupancy ?? 'Not reported'}</td>
+                  <td className="px-4 py-3">{shelter.availability?.reservedPlaces ?? 'Not reported'}</td>
                   <td className="px-4 py-3">{shelter.availability?.availablePlaces ?? 'Not reported'}</td>
                   <td className="px-4 py-3">{!shelter.availability ? 'Availability not reported' : shelter.availability.acceptingArrivals ? 'Accepting arrivals' : 'Not accepting arrivals'}</td>
                 </tr>

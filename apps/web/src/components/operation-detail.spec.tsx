@@ -123,6 +123,30 @@ describe('OperationDetail', () => {
     expect(screen.getByText('Not available yet.')).toBeTruthy();
   });
 
+  it('refreshes the shelter availability after an assignment', async () => {
+    HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
+    HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); this.dispatchEvent(new Event('close')); };
+    const initial = mapResponse('organization-a');
+    const report = { operationalCapacity: 100, currentOccupancy: 10, reservedPlaces: 0, availablePlaces: 90, acceptingArrivals: true, availabilityNote: null, reportedAt: '2026-10-20T10:00:00.000Z' };
+    initial.activeShelterAvailability[0].availability = report;
+    const updated = mapResponse('organization-a');
+    updated.activeShelterAvailability[0].availability = { ...report, reservedPlaces: 3, availablePlaces: 87 };
+    const api = {
+      getEmergencyOperationMap: vi.fn().mockResolvedValueOnce(initial).mockResolvedValueOnce(initial).mockResolvedValue(updated),
+      getOperatorHelpRequests: vi.fn().mockResolvedValue({ items: [{ id: 'request-1', requesterName: 'Test person', requesterPhone: '123', requesterEmail: null, groupSize: 3, locationDescription: 'Test', medicalSupportNeeded: false, canTravelIndependently: true }], nextCursor: null }),
+      assignHelpRequest: vi.fn().mockResolvedValue({ shelterName: 'Munich Hall', reservedGroupSize: 3 }),
+    } as unknown as ApiClient;
+    render(<OperationDetail accessToken="token" api={api} operationId="operation-1" organizationId="organization-a" />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Help requests' }));
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Review & assign' }))[0]);
+    fireEvent.click(screen.getByRole('radio', { name: /Munich Hall/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm assignment' }));
+    expect(await screen.findByText(/Assignment confirmed/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Shelters' }));
+    expect(await screen.findByText('87')).toBeTruthy();
+    expect(screen.getByText('3')).toBeTruthy();
+  });
+
   it('renders empty map and region states', async () => {
     const response = mapResponse('organization-a');
     response.activeShelters = [];
