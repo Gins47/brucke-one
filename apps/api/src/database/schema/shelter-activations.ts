@@ -5,6 +5,7 @@ import {
   pgEnum,
   pgTable,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
@@ -35,6 +36,10 @@ export const shelterActivations = pgTable(
       .notNull(),
   },
   (table) => [
+    unique('shelter_activations_id_operation_unique').on(
+      table.id,
+      table.emergencyOperationId,
+    ),
     foreignKey({
       name: 'shelter_activations_shelter_organization_fk',
       columns: [table.shelterId, table.organizationId],

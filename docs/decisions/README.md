@@ -15,6 +15,7 @@ These records collect significant decisions from the iteration documents and cur
 | [0009](0009-transactional-outbox-publication.md) | Transactional outbox and BullMQ handoff | Publisher accepted; worker and real Redis verification pending |
 | [0010](0010-public-references-and-status-lookup.md) | Short references and status-only lookup | Accepted for synthetic data with documented privacy limits |
 | [0011](0011-proposed-v1-placement-policy.md) | V1 placement and AI boundaries | Proposed product direction; not implemented or approved by this record |
+| [0012](0012-assignment-identity-and-actors.md) | Shared assignment identity and required manual actor | Iteration 009 schema implemented; review pending; automation deferred |
 
 ## How to use and maintain these records
 

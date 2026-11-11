@@ -8,5 +8,6 @@ export * from './roles';
 export * from './user-roles';
 export * from './users';
 export * from './help-requests';
+export * from './help-request-shelter-assignments';
 export * from './help-request-idempotency';
 export * from './outbox-events';

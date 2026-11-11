@@ -1,8 +1,9 @@
 # Project Status
 
-**Last updated:** 2026-11-10  
+**Last updated:** 2026-11-11
+
 **Latest accepted iteration:** [008 — Public Help-Request Intake](iterations/008-public-help-request-intake.md)  
-**Active implementation checkpoint:** None selected. Wait for an explicit user request before starting another checkpoint.
+**Active implementation checkpoint:** [Iteration 009, Checkpoint 1](iterations/009-manual-shelter-assignment.md#checkpoint-1--assignment-schema-and-migration) implemented and verified; review and acceptance pending. Do not start another checkpoint without an explicit user request.
 
 ## Delivered capabilities
 
@@ -33,7 +34,7 @@ The [final acceptance record](iterations/008-public-help-request-intake.md#7-fin
 
 ## Future work — not authorized
 
-Iteration 008 identifies public intake and operator queue UI as planned Iteration 009; no Iteration 009 document currently exists. Matching, reservations, geocoding, QR/check-in, notifications, AI, and business processing of queue jobs remain future work.
+Iteration 009 plans a synthetic manual-assignment demo; only its schema checkpoint is implemented, pending review. Its assignment API, reservation updates, and dashboard remain future work, as do automatic matching, geocoding, QR/check-in, notifications, AI, and business processing of queue jobs.
 
 ## Maintenance
 

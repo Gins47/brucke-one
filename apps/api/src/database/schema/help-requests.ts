@@ -57,6 +57,10 @@ export const helpRequests = pgTable(
       foreignColumns: [emergencyOperations.id],
     }).onDelete('restrict'),
     unique('help_requests_public_reference_unique').on(table.publicReference),
+    unique('help_requests_id_operation_unique').on(
+      table.id,
+      table.emergencyOperationId,
+    ),
     unique('help_requests_short_reference_unique').on(table.shortReference),
     uniqueIndex('help_requests_operation_email_unique')
       .on(table.emergencyOperationId, table.requesterEmail)
