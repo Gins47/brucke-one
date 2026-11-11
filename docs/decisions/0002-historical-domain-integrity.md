@@ -16,4 +16,4 @@ A shelter can be reactivated after deactivation without deleting its earlier his
 
 - [Iteration 002 model and checkpoints](../iterations/002-core-domain.md) and [Iteration 003 activation workflows](../iterations/003-core-operations-api.md)
 - [Core-domain migration](../../apps/api/drizzle/20261012122205_past_swordsman/migration.sql)
-- [Activation service](../../apps/api/src/shelter-activations/shelter-activations.service.ts) and [affected-region service](../../apps/api/src/operation-affected-regions/operation-affected-regions.service.ts)
+- [Activation service](../../apps/api/src/shelters/activations/shelter-activations.service.ts) and [affected-region service](../../apps/api/src/emergency-operations/affected-regions/operation-affected-regions.service.ts)

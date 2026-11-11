@@ -15,5 +15,5 @@ Reported reserved places are snapshot values, not person-level reservation recor
 ## Evidence
 
 - [Iteration 007 domain and lifecycle](../iterations/007-shelter-availability-and-readiness.md)
-- [Availability migration](../../apps/api/drizzle/20261023203918_serious_doctor_octopus/migration.sql) and [write service](../../apps/api/src/shelter-activation-availability/shelter-activation-availability.service.ts)
+- [Availability migration](../../apps/api/drizzle/20261023203918_serious_doctor_octopus/migration.sql) and [write service](../../apps/api/src/shelters/availability/shelter-activation-availability.service.ts)
 - [Dashboard projection](../../apps/api/src/dashboard/dashboard.service.ts)

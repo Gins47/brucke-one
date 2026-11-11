@@ -241,3 +241,33 @@ a reported availability snapshot.
 curl http://localhost:3000/dashboard/emergency-operations/22222222-2222-2222-2222-222222222222/map \
   --header 'Authorization: Bearer <access-token>'
 ```
+
+## Manual shelter assignment (Iteration 009)
+
+An authenticated development ADMIN can reserve a pending request's whole group:
+
+```http
+POST /emergency-operations/{operationId}/help-requests/{requestId}/assignment
+Authorization: Bearer <admin-token>
+Content-Type: application/json
+
+{"shelterActivationId":"<activation-uuid>"}
+```
+
+The response includes `id`, `helpRequestId`, `emergencyOperationId`,
+`shelterActivationId`, `shelterId`, `shelterName`, `reservedGroupSize`,
+`assignedByUserId`, and `createdAt`. A new assignment returns `201`; replaying
+the same request and activation returns the existing assignment with `200`,
+even after closure. Another activation conflicts. Invalid input returns `400`,
+missing or insufficient authorization returns `401`/`403`, missing scoped
+records return `404`, and eligibility or capacity conflicts return `409`.
+The protected queue's `status=RESERVED` view includes `assignment` (or null).
+
+One transaction locks the request, then activation, operation, shelter, and
+availability; it records the assignment, increments reserved places, and sets
+the request to `RESERVED`. It does not change occupancy or the report's
+timestamps. Once assigned, availability PUT rejects a changed reserved count
+with `409`; other valid report changes remain possible. Shelter PATCH rejects
+physical-capacity decreases and allows increases. Existing manually reported
+reservations remain an unattributed baseline. There is no release, expiry,
+reassignment, arrival, notification, or automated matching in this PoC.

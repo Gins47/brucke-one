@@ -1,6 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 
-import type { DatabaseService } from '../database/database.service';
+import type { DatabaseService } from '../../database/database.service';
 import { ShelterActivationAvailabilityService } from './shelter-activation-availability.service';
 
 const activation = {

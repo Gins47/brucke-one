@@ -186,6 +186,8 @@ describe('Shelters API (e2e)', () => {
     expect(updated.body).toMatchObject({
       id: shelter.id,
       name: 'Updated Community Hall',
+      address: shelter.address,
+      contactPhone: shelter.contactPhone,
       capacity: 300,
       latitude: 48.14,
       longitude: 11.59,

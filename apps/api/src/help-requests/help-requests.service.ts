@@ -12,9 +12,12 @@ import { DatabaseService } from '../database/database.service';
 import {
   emergencyOperations,
   helpRequestIdempotency,
+  helpRequestShelterAssignments,
   helpRequests,
   operationAffectedRegions,
   outboxEvents,
+  shelterActivations,
+  shelters,
 } from '../database/schema';
 import type {
   CreatePublicHelpRequestRequest,
@@ -461,8 +464,44 @@ export class HelpRequestsService {
     const pageRecords = records.slice(0, query.limit);
     const finalRecord = pageRecords.at(-1);
 
+    const assignments =
+      query.status === 'RESERVED' && pageRecords.length
+        ? await this.database.db
+            .select({
+              assignment: helpRequestShelterAssignments,
+              shelterId: shelters.id,
+              shelterName: shelters.name,
+            })
+            .from(helpRequestShelterAssignments)
+            .innerJoin(
+              shelterActivations,
+              eq(
+                shelterActivations.id,
+                helpRequestShelterAssignments.shelterActivationId,
+              ),
+            )
+            .innerJoin(shelters, eq(shelters.id, shelterActivations.shelterId))
+            .where(
+              inArray(
+                helpRequestShelterAssignments.helpRequestId,
+                pageRecords.map((record) => record.id),
+              ),
+            )
+        : [];
+    const assignmentByRequest = new Map(
+      assignments.map(({ assignment, shelterId, shelterName }) => [
+        assignment.helpRequestId,
+        { ...assignment, shelterId, shelterName },
+      ]),
+    );
+
     return {
-      items: pageRecords.map(toOperatorHelpRequest),
+      items: pageRecords.map((record) => ({
+        ...toOperatorHelpRequest(record),
+        ...(query.status === 'RESERVED'
+          ? { assignment: assignmentByRequest.get(record.id) ?? null }
+          : {}),
+      })),
       nextCursor:
         hasNextPage && finalRecord
           ? encodeHelpRequestQueueCursor(finalRecord)

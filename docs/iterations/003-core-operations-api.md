@@ -14,8 +14,8 @@
 | 2 — Organizations API | Implemented | [Module](../../apps/api/src/organizations/) and [HTTP tests](../../apps/api/test/organizations.e2e-spec.ts) cover creation, uniqueness, reads, partial updates, and immutable code. |
 | 3 — Emergency Operations API | Implemented | [Module](../../apps/api/src/emergency-operations/) and [HTTP tests](../../apps/api/test/emergency-operations.e2e-spec.ts) implement CRUD without deletion and explicit lifecycle commands. |
 | 4 — Shelters API | Implemented | [Module](../../apps/api/src/shelters/) and [HTTP tests](../../apps/api/test/shelters.e2e-spec.ts) cover capacity, paired coordinates, immutable fields, and partial updates. |
-| 5 — Shelter Activation workflows | Implemented | [Module](../../apps/api/src/shelter-activations/) and [HTTP tests](../../apps/api/test/shelter-activations.e2e-spec.ts) implement same-organization activation, active-operation checks, deactivation, and historical reuse. |
-| 6 — Affected-region workflows | Implemented | [Module](../../apps/api/src/operation-affected-regions/) and [HTTP tests](../../apps/api/test/operation-affected-regions.e2e-spec.ts) implement current-region listing and logical removal/reuse. |
+| 5 — Shelter Activation workflows | Implemented | [Module](../../apps/api/src/shelters/activations/) and [HTTP tests](../../apps/api/test/shelter-activations.e2e-spec.ts) implement same-organization activation, active-operation checks, deactivation, and historical reuse. |
+| 6 — Affected-region workflows | Implemented | [Module](../../apps/api/src/emergency-operations/affected-regions/) and [HTTP tests](../../apps/api/test/operation-affected-regions.e2e-spec.ts) implement current-region listing and logical removal/reuse. |
 
 **Later changes:** Iteration 005 added authentication to these routes; Iteration 008 added narrowly public routes elsewhere. Exclusions below describe the original delivery boundary, not today's full application. Exact installed versions belong to manifests and lockfiles.
 

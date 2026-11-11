@@ -1,7 +1,7 @@
 import { ConflictException } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
-import type { DatabaseService } from '../database/database.service';
-import { shelterActivations } from '../database/schema';
+import type { DatabaseService } from '../../database/database.service';
+import { shelterActivations } from '../../database/schema';
 import { ShelterActivationsService } from './shelter-activations.service';
 
 jest.mock('drizzle-orm', () => {

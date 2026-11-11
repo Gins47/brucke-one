@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { shelterActivationStatus } from '../database/schema';
+import { shelterActivationStatus } from '../../database/schema';
 
 export const createShelterActivationSchema = z.strictObject({
   shelterId: z.uuid(),

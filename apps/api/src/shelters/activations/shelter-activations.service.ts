@@ -4,12 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
-import { DatabaseService } from '../database/database.service';
+import { DatabaseService } from '../../database/database.service';
 import {
   emergencyOperations,
   shelterActivations,
   shelters,
-} from '../database/schema';
+} from '../../database/schema';
 import type {
   CreateShelterActivationRequest,
   ShelterActivationResponse,

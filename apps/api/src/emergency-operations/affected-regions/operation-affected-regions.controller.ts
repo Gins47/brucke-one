@@ -6,7 +6,7 @@ import {
   ParseUUIDPipe,
   Post,
 } from '@nestjs/common';
-import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
+import { ZodValidationPipe } from '../../common/validation/zod-validation.pipe';
 import {
   createAffectedRegionSchema,
   type AffectedRegionResponse,

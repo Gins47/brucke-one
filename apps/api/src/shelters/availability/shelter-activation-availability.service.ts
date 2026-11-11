@@ -5,13 +5,14 @@ import {
 } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 
-import { DatabaseService } from '../database/database.service';
+import { DatabaseService } from '../../database/database.service';
 import {
   emergencyOperations,
+  helpRequestShelterAssignments,
   shelterActivationAvailability,
   shelterActivations,
   shelters,
-} from '../database/schema';
+} from '../../database/schema';
 import type {
   ReplaceShelterActivationAvailabilityRequest,
   ShelterActivationAvailabilityGetResponse,
@@ -116,6 +117,22 @@ export class ShelterActivationAvailabilityService {
         )
         .for('update')
         .limit(1);
+      if (existing && input.reservedPlaces !== existing.reservedPlaces) {
+        const [assignment] = await tx
+          .select({ id: helpRequestShelterAssignments.id })
+          .from(helpRequestShelterAssignments)
+          .where(
+            eq(
+              helpRequestShelterAssignments.shelterActivationId,
+              activation.id,
+            ),
+          )
+          .limit(1);
+        if (assignment)
+          throw new ConflictException(
+            'Reserved places changed; refresh before updating availability',
+          );
+      }
       const now = new Date();
       const values = {
         ...input,

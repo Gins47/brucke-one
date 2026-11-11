@@ -250,6 +250,21 @@ rerun after the rename.
 **Acceptance:** An authorized ADMIN can assign a pending request to a valid
 activation without double-assignment or over-reservation.
 
+**Implementation record (2026-11-11):** Implemented; review and acceptance
+pending. The protected endpoint returns `201` for a new assignment and `200`
+for a same-activation replay. The protected RESERVED queue includes assignment
+and shelter identity. A transaction locks the request, activation, operation,
+shelter, and availability in that order. The availability PUT uses the same
+parent lock order, while shelter capacity decreases are rejected atomically.
+The assignment does not update occupancy or report timestamps. The API README
+describes the contract and limitations.
+
+Focused isolated PostgreSQL tests cover reservations, replay, competition,
+stale/concurrent reports, invalid eligibility, the capacity guard, and forced
+transaction rollback. The full isolated E2E suite passed with 24 suites and
+167 tests. Assignment versus parent closure was not directly race-tested. No
+development migration was applied.
+
 ### Checkpoint 3 — Operator dashboard
 
 In the emergency operation’s “People seeking help” tab:

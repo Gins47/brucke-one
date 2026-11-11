@@ -7,7 +7,7 @@ import {
   Put,
 } from '@nestjs/common';
 
-import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
+import { ZodValidationPipe } from '../../common/validation/zod-validation.pipe';
 import {
   replaceShelterActivationAvailabilitySchema,
   type ReplaceShelterActivationAvailabilityRequest,

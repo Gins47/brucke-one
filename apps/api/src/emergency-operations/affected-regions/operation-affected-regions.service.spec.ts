@@ -1,7 +1,7 @@
 import { ConflictException } from '@nestjs/common';
 import { and, eq, isNull } from 'drizzle-orm';
-import type { DatabaseService } from '../database/database.service';
-import { operationAffectedRegions } from '../database/schema';
+import type { DatabaseService } from '../../database/database.service';
+import { operationAffectedRegions } from '../../database/schema';
 import { OperationAffectedRegionsService } from './operation-affected-regions.service';
 
 jest.mock('drizzle-orm', () => {

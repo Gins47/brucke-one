@@ -3,7 +3,7 @@
 **Last updated:** 2026-11-11
 
 **Latest accepted iteration:** [008 — Public Help-Request Intake](iterations/008-public-help-request-intake.md)  
-**Active implementation checkpoint:** [Iteration 009, Checkpoint 1](iterations/009-manual-shelter-assignment.md#checkpoint-1--assignment-schema-and-migration) implemented and verified; review and acceptance pending. Do not start another checkpoint without an explicit user request.
+**Active implementation checkpoint:** [Iteration 009, Checkpoint 2](iterations/009-manual-shelter-assignment.md#checkpoint-2--protected-assignment-api) implemented; review and acceptance pending. Do not start another checkpoint without an explicit user request.
 
 ## Delivered capabilities
 
@@ -34,7 +34,7 @@ The [final acceptance record](iterations/008-public-help-request-intake.md#7-fin
 
 ## Future work — not authorized
 
-Iteration 009 plans a synthetic manual-assignment demo; only its schema checkpoint is implemented, pending review. Its assignment API, reservation updates, and dashboard remain future work, as do automatic matching, geocoding, QR/check-in, notifications, AI, and business processing of queue jobs.
+Iteration 009's manual assignment API and reservation safeguards are implemented, pending review; its dashboard remains future work, as do automatic matching, geocoding, QR/check-in, notifications, AI, and business processing of queue jobs.
 
 ## Maintenance
 

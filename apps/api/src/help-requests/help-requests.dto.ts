@@ -59,6 +59,23 @@ export type PublicHelpRequestStatusResponse = {
   status: (typeof helpRequestStatus.enumValues)[number];
 };
 
+/** Validates the activation selected by an operator for a manual assignment. */
+export const createShelterAssignmentSchema = z.strictObject({
+  shelterActivationId: z.uuid().transform((value) => value.toLowerCase()),
+});
+
+export type ShelterAssignmentResponse = {
+  id: string;
+  helpRequestId: string;
+  emergencyOperationId: string;
+  shelterActivationId: string;
+  shelterId: string;
+  shelterName: string;
+  reservedGroupSize: number;
+  assignedByUserId: string;
+  createdAt: Date;
+};
+
 /** Validates the UUID supplied in the public idempotency request header. */
 export const idempotencyKeySchema = z.uuid();
 
@@ -156,6 +173,7 @@ export type OperatorHelpRequestResponse = {
   medicalSupportNeeded: boolean;
   status: (typeof helpRequestStatus.enumValues)[number];
   createdAt: Date;
+  assignment?: ShelterAssignmentResponse | null;
 };
 
 export type HelpRequestQueueResponse = {

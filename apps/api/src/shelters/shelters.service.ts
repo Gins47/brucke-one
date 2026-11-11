@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, eq, lte } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import { shelters } from '../database/schema';
 import type {
@@ -105,10 +105,26 @@ export class SheltersService {
     const [shelter] = await this.database.db
       .update(shelters)
       .set({ ...input, updatedAt: new Date() })
-      .where(eq(shelters.id, id))
+      .where(
+        and(
+          eq(shelters.id, id),
+          input.capacity === undefined
+            ? undefined
+            : lte(shelters.capacity, input.capacity),
+        ),
+      )
       .returning();
 
     if (!shelter) {
+      if (input.capacity !== undefined) {
+        const [existing] = await this.database.db
+          .select({ id: shelters.id })
+          .from(shelters)
+          .where(eq(shelters.id, id))
+          .limit(1);
+        if (existing)
+          throw new ConflictException('Shelter capacity cannot be decreased');
+      }
       throw new NotFoundException('Shelter not found');
     }
 

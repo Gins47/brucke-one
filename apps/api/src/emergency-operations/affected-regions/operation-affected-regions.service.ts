@@ -4,11 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { and, asc, eq, isNull } from 'drizzle-orm';
-import { DatabaseService } from '../database/database.service';
+import { DatabaseService } from '../../database/database.service';
 import {
   emergencyOperations,
   operationAffectedRegions,
-} from '../database/schema';
+} from '../../database/schema';
 import type {
   AffectedRegionResponse,
   CreateAffectedRegionRequest,
