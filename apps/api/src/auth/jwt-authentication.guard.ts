@@ -7,11 +7,19 @@ import {
 import { JwtService } from '@nestjs/jwt';
 
 import { getJwtConfig } from './jwt.config';
+import { browserCookieName, requireBrowserRequest } from './browser-auth';
 
 /** Represents a request after a verified JWT subject has been attached. */
 export type AuthenticatedRequest = {
-  headers: { authorization?: string };
+  headers: {
+    authorization?: string;
+    cookie?: string;
+    origin?: string;
+    'x-brucke-request'?: string;
+  };
+  method: string;
   authenticatedUserId?: string;
+  authenticatedUser?: { id: string; username: string };
 };
 
 type AccessTokenPayload = {
@@ -29,7 +37,18 @@ export class JwtAuthenticationGuard implements CanActivate {
   /** Rejects invalid bearer tokens before a protected controller handler runs. */
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const token = this.extractBearerToken(request.headers.authorization);
+    const authorization = request.headers.authorization;
+    const bearerSupplied = authorization !== undefined;
+    const cookie =
+      request.headers.cookie
+        ?.split(';')
+        .map((part) => part.trim())
+        .filter((part) => part.startsWith(`${browserCookieName}=`)) ?? [];
+    const token = bearerSupplied
+      ? this.extractBearerToken(authorization)
+      : cookie.length === 1
+        ? cookie[0].slice(browserCookieName.length + 1)
+        : null;
 
     if (!token) {
       throw new UnauthorizedException();
@@ -52,10 +71,16 @@ export class JwtAuthenticationGuard implements CanActivate {
       }
 
       request.authenticatedUserId = payload.sub;
-      return true;
     } catch {
       throw new UnauthorizedException();
     }
+    if (
+      !bearerSupplied &&
+      !['GET', 'HEAD', 'OPTIONS'].includes(request.method)
+    ) {
+      requireBrowserRequest(request);
+    }
+    return true;
   }
 
   /** Extracts a single bearer token from the request authorization header. */

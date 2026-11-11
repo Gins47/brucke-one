@@ -6,7 +6,8 @@ export function getDevelopmentCorsOptions(environment: NodeJS.ProcessEnv) {
 
   return {
     origin: environment.WEB_ORIGIN ?? 'http://localhost:3001',
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Brucke-Request'],
+    credentials: true,
     methods: ['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   };
 }

@@ -29,9 +29,19 @@ export class AuthService implements OnModuleInit {
 
   /** Authenticates configured credentials and returns a signed access token. */
   async login(input: LoginRequest): Promise<LoginResponse> {
+    const { accessToken, expiresIn } = await this.authenticate(input);
+    return { accessToken, tokenType: 'Bearer', expiresIn };
+  }
+
+  /** Validates credentials and issues a token with the authenticated identity. */
+  async authenticate(input: LoginRequest) {
     const username = normalizeUsername(input.username);
     const [user] = await this.database.db
-      .select({ id: users.id, passwordHash: users.passwordHash })
+      .select({
+        id: users.id,
+        username: users.username,
+        passwordHash: users.passwordHash,
+      })
       .from(users)
       .where(eq(users.username, username))
       .limit(1);
@@ -65,8 +75,11 @@ export class AuthService implements OnModuleInit {
 
     return {
       accessToken,
-      tokenType: 'Bearer',
       expiresIn: config.expiresIn,
+      identity: { id: user.id, username: user.username },
+      expiresAt: new Date(
+        this.jwtService.decode<{ exp: number }>(accessToken).exp * 1000,
+      ),
     };
   }
 }

@@ -39,27 +39,26 @@ export class AdminAuthorizationGuard implements CanActivate {
 
     await this.jwtAuthenticationGuard.canActivate(context);
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const hasAdminRole = await this.hasCurrentAdminRole(
-      request.authenticatedUserId!,
-    );
+    const identity = await this.findCurrentAdmin(request.authenticatedUserId!);
 
-    if (!hasAdminRole) {
+    if (!identity) {
       throw new ForbiddenException();
     }
 
+    request.authenticatedUser = identity;
     return true;
   }
 
   /** Checks the current user-role relationship instead of trusting a token role claim. */
-  private async hasCurrentAdminRole(userId: string): Promise<boolean> {
+  private async findCurrentAdmin(userId: string) {
     const [assignment] = await this.database.db
-      .select({ id: userRoles.id })
+      .select({ id: users.id, username: users.username })
       .from(users)
       .innerJoin(userRoles, eq(userRoles.userId, users.id))
       .innerJoin(roles, eq(roles.id, userRoles.roleId))
       .where(and(eq(users.id, userId), eq(roles.name, adminRoleName)))
       .limit(1);
 
-    return Boolean(assignment);
+    return assignment;
   }
 }

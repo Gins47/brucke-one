@@ -25,7 +25,8 @@ describe('getDevelopmentCorsOptions', () => {
       }),
     ).toEqual({
       origin: 'http://localhost:3001',
-      allowedHeaders: ['Content-Type', 'Authorization'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Brucke-Request'],
+      credentials: true,
       methods: ['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     });
   });
@@ -61,6 +62,24 @@ describe('getDevelopmentCorsOptions', () => {
       expect(response.headers['access-control-allow-headers']).toContain(
         'Authorization',
       );
+
+      const browserResponse = await request(app.getHttpServer())
+        .options('/cors-test')
+        .set('Origin', 'http://localhost:3001')
+        .set('Access-Control-Request-Method', 'POST')
+        .set('Access-Control-Request-Headers', 'x-brucke-request')
+        .expect(204);
+      expect(browserResponse.headers['access-control-allow-origin']).toBe(
+        'http://localhost:3001',
+      );
+      expect(browserResponse.headers['access-control-allow-credentials']).toBe(
+        'true',
+      );
+      expect(
+        String(
+          browserResponse.headers['access-control-allow-headers'],
+        ).toLowerCase(),
+      ).toContain('x-brucke-request');
     } finally {
       await app.close();
     }

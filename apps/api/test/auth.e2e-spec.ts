@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   INestApplication,
+  Post,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -40,6 +41,12 @@ class AuthenticatedTestController {
   @UseGuards(JwtAuthenticationGuard)
   protected(@Req() request: AuthenticatedRequest): { userId?: string } {
     return { userId: request.authenticatedUserId };
+  }
+
+  /** Exercises the global authorization guard on a state-changing request. */
+  @Post('mutation')
+  mutation(): { ok: true } {
+    return { ok: true };
   }
 }
 
@@ -146,6 +153,142 @@ describe('Auth API (e2e)', () => {
       statusCode: 401,
       message: 'Invalid username or password',
     });
+  });
+
+  it('supports browser cookies, protects mutations, and retains Bearer precedence', async () => {
+    process.env.NODE_ENV = 'development';
+    process.env.WEB_ORIGIN = 'http://localhost:3001';
+    const server = app.getHttpServer();
+    const credentials = { username: testUsername, password: testPassword };
+    await request(server)
+      .post('/auth/browser/login')
+      .send(credentials)
+      .expect(403);
+    await request(server)
+      .post('/auth/browser/login')
+      .set('Origin', 'http://evil.example')
+      .set('X-Brucke-Request', '1')
+      .send(credentials)
+      .expect(403);
+    await request(server)
+      .post('/auth/browser/login')
+      .set('Origin', 'http://localhost:3001')
+      .send(credentials)
+      .expect(403);
+    const login = await request(server)
+      .post('/auth/browser/login')
+      .set('Origin', 'http://localhost:3001')
+      .set('X-Brucke-Request', '1')
+      .send(credentials)
+      .expect(201);
+    const body = login.body as {
+      id: string;
+      username: string;
+      accessToken?: string;
+    };
+    expect(typeof body.id).toBe('string');
+    expect(Object.keys(body).sort()).toEqual(['id', 'username']);
+    expect(body.username).toBe(testUsername);
+    const cookie = (login.headers['set-cookie'] as unknown as string[])[0];
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).toContain('SameSite=Lax');
+    expect(cookie).toContain('Path=/');
+    expect(cookie).toContain('Expires=');
+    expect(cookie).not.toContain('Secure');
+    expect(cookie).not.toContain('Domain=');
+    const cookieHeader = cookie.split(';')[0];
+    const cookieToken = cookieHeader.slice('brucke_admin='.length);
+    const tokenClaims = jwtService.decode<{ exp: number }>(cookieToken);
+    const expires = /(?:^|;\s*)Expires=([^;]+)/i.exec(cookie)?.[1];
+    expect(expires).toBeDefined();
+    const cookieExpiry = Date.parse(expires!);
+    expect(Number.isFinite(cookieExpiry)).toBe(true);
+    expect(cookieExpiry).toBeLessThanOrEqual(tokenClaims.exp * 1000);
+    await request(server)
+      .get('/auth/me')
+      .set('Cookie', cookieHeader)
+      .expect(200)
+      .expect(body);
+    await request(server)
+      .get('/auth/me')
+      .set('Cookie', cookieHeader)
+      .set('Authorization', 'Bearer invalid')
+      .expect(401);
+    const bearer = await request(server)
+      .post('/auth/login')
+      .send(credentials)
+      .expect(201);
+    const token = (bearer.body as LoginResponse).accessToken;
+    await request(server)
+      .get('/auth/me')
+      .set('Cookie', 'brucke_admin=invalid')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+      .expect(body);
+    await request(server)
+      .post('/auth-test/mutation')
+      .set('Cookie', cookieHeader)
+      .expect(403);
+    await request(server)
+      .post('/auth-test/mutation')
+      .set('Cookie', cookieHeader)
+      .set('Origin', 'http://evil.example')
+      .set('X-Brucke-Request', '1')
+      .expect(403);
+    await request(server)
+      .post('/auth-test/mutation')
+      .set('Cookie', cookieHeader)
+      .set('Origin', 'http://localhost:3001')
+      .set('X-Brucke-Request', '1')
+      .expect(201);
+    await request(server)
+      .post('/auth-test/mutation')
+      .set('Cookie', cookieHeader)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(201);
+    await request(server)
+      .post('/auth/browser/logout')
+      .set('Cookie', cookieHeader)
+      .expect(403);
+    const logout = await request(server)
+      .post('/auth/browser/logout')
+      .set('Cookie', cookieHeader)
+      .set('Origin', 'http://localhost:3001')
+      .set('X-Brucke-Request', '1')
+      .expect(201);
+    expect((logout.headers['set-cookie'] as unknown as string[])[0]).toContain(
+      'Expires=Thu, 01 Jan 1970',
+    );
+    await database.db.delete(userRoles).where(eq(userRoles.userId, body.id));
+    await request(server)
+      .post('/auth/browser/login')
+      .set('Origin', 'http://localhost:3001')
+      .set('X-Brucke-Request', '1')
+      .send(credentials)
+      .expect(201);
+    await request(server)
+      .get('/auth/me')
+      .set('Cookie', cookieHeader)
+      .expect(403);
+    await request(server)
+      .get('/auth/me')
+      .set('Cookie', 'brucke_admin=invalid')
+      .expect(401);
+    const config = getJwtConfig();
+    const expired = await jwtService.signAsync(
+      { sub: body.id },
+      {
+        secret: config.secret,
+        algorithm: 'HS256',
+        expiresIn: -1,
+        issuer: config.issuer,
+        audience: config.audience,
+      },
+    );
+    await request(server)
+      .get('/auth/me')
+      .set('Cookie', `brucke_admin=${expired}`)
+      .expect(401);
   });
 
   it('rejects unknown login fields with the project validation response', async () => {
