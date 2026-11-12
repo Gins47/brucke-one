@@ -13,14 +13,14 @@ export default function Home() {
   const session = useSession();
 
   useEffect(() => {
-    if (!session.accessToken) {
+    if (!session.sessionKey) {
       router.replace('/login');
     } else if (!session.selectedOrganization) {
       router.replace('/organizations');
     }
-  }, [router, session.accessToken, session.selectedOrganization]);
+  }, [router, session.sessionKey, session.selectedOrganization]);
 
-  if (!session.accessToken || !session.selectedOrganization) {
+  if (!session.sessionKey || !session.selectedOrganization) {
     return null;
   }
 
@@ -34,24 +34,23 @@ export default function Home() {
   return (
     <DashboardShell
       onLogout={() => {
-        session.logout();
-        router.replace('/login');
+        void session.logout();
       }}
       onSelectOrganization={selectOrganization}
       organizations={session.organizations}
       selectedOrganization={session.selectedOrganization}
     >
       <section aria-labelledby="page-title" className="w-full">
-        <p className="text-sm font-semibold text-blue-700">Operations dashboard</p>
         <h1 id="page-title" className="mt-3 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-          A clear workspace for emergency coordination.
+          Operations dashboard
         </h1>
-        <p className="mt-4 text-base leading-7 text-slate-600">{session.selectedOrganization.name} is selected.</p>
-        <DashboardOverview key={session.selectedOrganization.id} accessToken={session.accessToken} api={session.api} organization={session.selectedOrganization} />
+        <p className="mt-4 text-base leading-7 text-slate-600">{session.selectedOrganization.name}</p>
+        <DashboardOverview key={session.selectedOrganization.id} sessionKey={session.sessionKey} api={session.api} organization={session.selectedOrganization} />
         <OperationsTable
-          accessToken={session.accessToken}
+          sessionKey={session.sessionKey}
           api={session.api}
           emptyMessage="No active operations are available."
+          description="Active emergency operations for this organization."
           key={`${session.selectedOrganization.id}-ACTIVE`}
           organization={session.selectedOrganization}
           pageSize={5}

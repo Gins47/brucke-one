@@ -11,13 +11,13 @@ import {
 type DetailState = { status: 'loading' | 'error' | 'not-found' | 'ready'; shelter: DashboardShelter | null };
 
 /** Resets shelter state when the session or selected scope changes. */
-export function ShelterDetail(props: { accessToken: string; api: ApiClient; organizationId: string; shelterId: string }) {
-  return <ShelterDetailPage key={`${props.accessToken}:${props.organizationId}:${props.shelterId}`} {...props} />;
+export function ShelterDetail(props: { sessionKey: string; api: ApiClient; organizationId: string; shelterId: string }) {
+  return <ShelterDetailPage key={`${props.sessionKey}:${props.organizationId}:${props.shelterId}`} {...props} />;
 }
 
 /** Displays one selected-organization shelter and its current availability context. */
-function ShelterDetailPage({ accessToken, api, organizationId, shelterId }: {
-  accessToken: string;
+function ShelterDetailPage({ sessionKey, api, organizationId, shelterId }: {
+  sessionKey: string;
   api: ApiClient;
   organizationId: string;
   shelterId: string;
@@ -26,21 +26,21 @@ function ShelterDetailPage({ accessToken, api, organizationId, shelterId }: {
 
   useEffect(() => {
     const controller = new AbortController();
-    void api.getOrganizationShelter(accessToken, organizationId, shelterId, controller.signal)
+    void api.getOrganizationShelter(sessionKey, organizationId, shelterId, controller.signal)
       .then((shelter) => { if (!controller.signal.aborted) setState({ status: 'ready', shelter }); })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
         setState({ status: error instanceof ApiError && error.status === 404 ? 'not-found' : 'error', shelter: null });
       });
     return () => controller.abort();
-  }, [accessToken, api, organizationId, shelterId]);
+  }, [sessionKey, api, organizationId, shelterId]);
 
   if (state.status === 'loading') return <p className="mt-8 text-slate-600">Loading shelter…</p>;
   if (state.status === 'not-found') return <p className="mt-8 text-slate-600">This shelter was not found in the selected organization.</p>;
   if (state.status === 'error' || !state.shelter) return <p className="mt-8 text-red-700" role="alert">Unable to load shelter details.</p>;
 
   return <ShelterDetailContent
-    accessToken={accessToken}
+    sessionKey={sessionKey}
     api={api}
     organizationId={organizationId}
     key={`${state.shelter.id}-${state.shelter.activeActivation?.id ?? 'inactive'}`}
@@ -49,7 +49,7 @@ function ShelterDetailPage({ accessToken, api, organizationId, shelterId }: {
 }
 
 /** Renders stable shelter facts and the current active availability report when present. */
-function ShelterDetailContent({ accessToken, api, shelter, organizationId }: { accessToken: string; api: ApiClient; shelter: DashboardShelter; organizationId: string }) {
+function ShelterDetailContent({ sessionKey, api, shelter, organizationId }: { sessionKey: string; api: ApiClient; shelter: DashboardShelter; organizationId: string }) {
   const [availability, setAvailability] = useState<ShelterAvailability | null>(shelter.activeActivation?.availability ?? null);
   const [message, setMessage] = useState<string | null>(null);
   const [currentShelter, setCurrentShelter] = useState(shelter);
@@ -59,13 +59,13 @@ function ShelterDetailContent({ accessToken, api, shelter, organizationId }: { a
   const [reloadState, setReloadState] = useState<'ready' | 'loading' | 'error'>('ready');
   const [formRevision, setFormRevision] = useState(0);
   const reloadController = useRef<AbortController | null>(null);
-  useEffect(() => () => { reloadController.current?.abort(); }, [accessToken, api, organizationId, shelter.id]);
+  useEffect(() => () => { reloadController.current?.abort(); }, [sessionKey, api, organizationId, shelter.id]);
 
   /** Determines whether an activation already has an assignment. */
   const hasAssignment = async (operationId: string, activationId: string, signal: AbortSignal) => {
     let cursor: string | undefined;
     do {
-      const page = await api.getOperatorHelpRequests(accessToken, operationId, 'RESERVED', cursor, signal);
+      const page = await api.getOperatorHelpRequests(sessionKey, operationId, 'RESERVED', cursor, signal);
       if (signal.aborted) throw new Error('Request cancelled');
       if (page.items.some((item) => item.assignment?.shelterActivationId === activationId)) return true;
       cursor = page.nextCursor ?? undefined;
@@ -82,7 +82,7 @@ function ShelterDetailContent({ accessToken, api, shelter, organizationId }: { a
     setReservationLock('checking');
     setMessage('Availability changed. Your edits were not saved; review the latest report before saving again.');
     try {
-      const latest = await api.getOrganizationShelter(accessToken, organizationId, shelter.id, controller.signal);
+      const latest = await api.getOrganizationShelter(sessionKey, organizationId, shelter.id, controller.signal);
       const active = latest.activeActivation;
       const locked = active && active.operation.status === 'ACTIVE'
         ? await hasAssignment(active.operation.id, active.id, controller.signal) : false;
@@ -106,7 +106,7 @@ function ShelterDetailContent({ accessToken, api, shelter, organizationId }: { a
     return () => controller.abort();
   // This effect is scoped to the activation and session; the helper uses those values.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessToken, activation, api]);
+  }, [sessionKey, activation, api]);
 
   return (
     <section className="mt-8 space-y-8" aria-labelledby="shelter-title">
@@ -125,7 +125,7 @@ function ShelterDetailContent({ accessToken, api, shelter, organizationId }: { a
         {reloadState === 'error' && <p role="alert" className="text-red-700">Could not reload availability. Your edits were not saved. <button type="button" className="underline" onClick={() => void reloadAfterConflict()}>Retry reload</button></p>}
         {reloadState === 'ready' && (availability ? <AvailabilityValues availability={availability} /> : <p className="rounded-xl border border-slate-200 bg-slate-50 p-5 text-slate-700">Not reported yet.</p>)}
         {reloadState === 'ready' && (activation.operation.status === 'ACTIVE' ? (
-          <AvailabilityForm accessToken={accessToken} activationId={activation.id} api={api} key={formRevision} initial={availability} reservationLock={reservationLock} onConflict={() => void reloadAfterConflict()} onSaved={(next) => { setAvailability(next); setMessage('Availability report updated.'); }} onError={setMessage} />
+          <AvailabilityForm sessionKey={sessionKey} activationId={activation.id} api={api} key={formRevision} initial={availability} reservationLock={reservationLock} onConflict={() => void reloadAfterConflict()} onSaved={(next) => { setAvailability(next); setMessage('Availability report updated.'); }} onError={setMessage} />
         ) : (
           <p className="rounded-xl border border-slate-200 bg-slate-50 p-5 text-slate-700">Availability cannot be edited because this operation is no longer active.</p>
         ))}
@@ -145,10 +145,10 @@ function AvailabilityValues({ availability }: { availability: ShelterAvailabilit
 }
 
 /** Submits a complete report and keeps server-confirmed values as the displayed state. */
-function AvailabilityForm({ accessToken, activationId, api, initial, reservationLock, onConflict, onSaved, onError }: { accessToken: string; activationId: string; api: ApiClient; initial: ShelterAvailability | null; onConflict: () => void; reservationLock: 'checking' | 'locked' | 'editable'; onSaved: (availability: ShelterAvailability) => void; onError: (message: string) => void }) {
+function AvailabilityForm({ sessionKey, activationId, api, initial, reservationLock, onConflict, onSaved, onError }: { sessionKey: string; activationId: string; api: ApiClient; initial: ShelterAvailability | null; onConflict: () => void; reservationLock: 'checking' | 'locked' | 'editable'; onSaved: (availability: ShelterAvailability) => void; onError: (message: string) => void }) {
   const [saving, setSaving] = useState(false);
   const saveController = useRef<AbortController | null>(null);
-  useEffect(() => () => { saveController.current?.abort(); }, [accessToken, activationId, api]);
+  useEffect(() => () => { saveController.current?.abort(); }, [sessionKey, activationId, api]);
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const fields = new FormData(event.currentTarget);
@@ -156,7 +156,7 @@ function AvailabilityForm({ accessToken, activationId, api, initial, reservation
     saveController.current = controller;
     setSaving(true); onError('');
     try {
-      const response = await api.replaceShelterActivationAvailability(accessToken, activationId, {
+      const response = await api.replaceShelterActivationAvailability(sessionKey, activationId, {
         operationalCapacity: Number(fields.get('operationalCapacity')), currentOccupancy: Number(fields.get('currentOccupancy')), reservedPlaces: Number(fields.get('reservedPlaces')),
         acceptingArrivals: fields.get('acceptingArrivals') === 'on', availabilityNote: String(fields.get('availabilityNote') ?? '').trim() || undefined,
       }, controller.signal);

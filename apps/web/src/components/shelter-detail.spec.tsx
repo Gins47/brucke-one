@@ -30,7 +30,7 @@ describe('ShelterDetail', () => {
       getOperatorHelpRequests: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
       replaceShelterActivationAvailability: vi.fn().mockResolvedValue({ operationalCapacity: 70, currentOccupancy: 20, reservedPlaces: 10, availablePlaces: 40, acceptingArrivals: false, availabilityNote: 'Updated', reportedAt: '2026-10-25T11:00:00.000Z' }),
     } as unknown as ApiClient;
-    render(<ShelterDetail accessToken="token" api={api} organizationId="organization-1" shelterId="shelter-1" />);
+    render(<ShelterDetail sessionKey="token" api={api} organizationId="organization-1" shelterId="shelter-1" />);
 
     expect(await screen.findByText('50')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Save availability' }));
@@ -43,17 +43,17 @@ describe('ShelterDetail', () => {
       getOrganizationShelter: vi.fn().mockResolvedValue(shelter({ id: 'activation-1', activatedAt: '2026-10-25T10:00:00.000Z', operation: { id: 'operation-1', operationCode: 'OP-1', name: 'Flood response', status: 'ACTIVE' }, availability: { operationalCapacity: 80, currentOccupancy: 20, reservedPlaces: 2, availablePlaces: 58, acceptingArrivals: true, availabilityNote: null, reportedAt: '2026-10-25T10:00:00.000Z' } })),
       getOperatorHelpRequests: vi.fn().mockResolvedValue({ items: [{ assignment: { shelterActivationId: 'activation-1' } }], nextCursor: null }),
     } as unknown as ApiClient;
-    render(<ShelterDetail accessToken="token" api={api} organizationId="organization-1" shelterId="shelter-1" />);
+    render(<ShelterDetail sessionKey="token" api={api} organizationId="organization-1" shelterId="shelter-1" />);
     expect(await screen.findByText(/Reserved places are read-only/)).toBeTruthy();
     expect((screen.getByLabelText('Reserved places') as HTMLInputElement).readOnly).toBe(true);
   });
 
   it('distinguishes not reported and no active emergency operation', async () => {
     const api = { getOrganizationShelter: vi.fn().mockResolvedValue(shelter({ id: 'activation-1', activatedAt: '2026-10-25T10:00:00.000Z', operation: { id: 'operation-1', operationCode: 'OP-1', name: 'Flood response', status: 'ACTIVE' }, availability: null })) } as unknown as ApiClient;
-    const view = render(<ShelterDetail accessToken="token" api={api} organizationId="organization-1" shelterId="shelter-1" />);
+    const view = render(<ShelterDetail sessionKey="token" api={api} organizationId="organization-1" shelterId="shelter-1" />);
     expect(await screen.findByText('Not reported yet.')).toBeTruthy();
     (api.getOrganizationShelter as ReturnType<typeof vi.fn>).mockResolvedValueOnce(shelter(null));
-    view.rerender(<ShelterDetail accessToken="token" api={api} organizationId="organization-1" shelterId="shelter-2" />);
+    view.rerender(<ShelterDetail sessionKey="token" api={api} organizationId="organization-1" shelterId="shelter-2" />);
     expect(await screen.findByText('No active emergency operation.')).toBeTruthy();
   });
 
@@ -65,7 +65,7 @@ describe('ShelterDetail', () => {
       getOperatorHelpRequests: vi.fn().mockResolvedValueOnce({ items: [], nextCursor: null }).mockResolvedValue({ items: [{ assignment: { shelterActivationId: 'activation-1' } }], nextCursor: null }),
       replaceShelterActivationAvailability: vi.fn().mockRejectedValue(new ApiError(409, 'conflict')),
     } as unknown as ApiClient;
-    render(<ShelterDetail accessToken="token" api={api} organizationId="organization-1" shelterId="shelter-1" />);
+    render(<ShelterDetail sessionKey="token" api={api} organizationId="organization-1" shelterId="shelter-1" />);
     const capacity = await screen.findByLabelText('Operational capacity');
     fireEvent.change(capacity, { target: { value: '70' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save availability' }));
@@ -80,8 +80,8 @@ describe('ShelterDetail', () => {
     const first = deferred<DashboardShelter>();
     const second = deferred<DashboardShelter>();
     const api = { getOrganizationShelter: vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise) } as unknown as ApiClient;
-    const view = render(<ShelterDetail accessToken="token" api={api} organizationId="organization-a" shelterId="shelter-1" />);
-    view.rerender(<ShelterDetail accessToken="token" api={api} organizationId="organization-b" shelterId="shelter-1" />);
+    const view = render(<ShelterDetail sessionKey="token" api={api} organizationId="organization-a" shelterId="shelter-1" />);
+    view.rerender(<ShelterDetail sessionKey="token" api={api} organizationId="organization-b" shelterId="shelter-1" />);
     await act(async () => { second.resolve({ ...shelter(null), name: 'Organization B shelter' }); });
     expect(await screen.findByRole('heading', { name: 'Organization B shelter' })).toBeTruthy();
     await act(async () => { first.resolve({ ...shelter(null), name: 'Organization A shelter' }); });

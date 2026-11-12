@@ -13,16 +13,16 @@ export default function OperationDetailPage() {
   const session = useSession();
 
   useEffect(() => {
-    if (!session.accessToken) {
+    if (!session.sessionKey) {
       router.replace('/login');
       return;
     }
     if (!session.selectedOrganization) {
       router.replace('/organizations');
     }
-  }, [router, session.accessToken, session.selectedOrganization]);
+  }, [router, session.sessionKey, session.selectedOrganization]);
 
-  if (!session.accessToken || !session.selectedOrganization) {
+  if (!session.sessionKey || !session.selectedOrganization) {
     return null;
   }
 
@@ -39,15 +39,14 @@ export default function OperationDetailPage() {
   return (
     <DashboardShell
       onLogout={() => {
-        session.logout();
-        router.replace('/login');
+        void session.logout();
       }}
       onSelectOrganization={selectOrganization}
       organizations={session.organizations}
       selectedOrganization={session.selectedOrganization}
     >
       <OperationDetail
-        accessToken={session.accessToken}
+        sessionKey={session.sessionKey}
         api={session.api}
         key={`${session.selectedOrganization.id}-${params.operationId}`}
         operationId={params.operationId}

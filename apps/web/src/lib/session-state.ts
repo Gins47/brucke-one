@@ -1,32 +1,28 @@
-import type { Organization } from './api-client';
+import type { AdminIdentity, Organization } from './api-client';
 
 export type SessionState = {
-  accessToken: string | null;
+  user: AdminIdentity | null;
+  sessionKey: string | null;
   selectedOrganization: Organization | null;
 };
 
 export const initialSessionState: SessionState = {
-  accessToken: null,
+  user: null,
+  sessionKey: null,
   selectedOrganization: null,
 };
 
-/** Starts an authenticated in-memory session after a successful login. */
-export function startSession(accessToken: string): SessionState {
-  return { ...initialSessionState, accessToken };
+/** Starts an authenticated session with a non-secret UI lifecycle key. */
+export function startSession(user: AdminIdentity, sessionKey: string): SessionState {
+  return { user, sessionKey, selectedOrganization: null };
 }
 
-/** Clears all in-memory session and organization state for logout or a 401 response. */
+/** Clears the authenticated identity and selected organization. */
 export function clearSession(): SessionState {
   return initialSessionState;
 }
 
 /** Changes the current in-memory organization selection. */
-export function selectOrganization(
-  state: SessionState,
-  organization: Organization,
-): SessionState {
-  return {
-    ...state,
-    selectedOrganization: organization,
-  };
+export function selectOrganization(state: SessionState, organization: Organization): SessionState {
+  return { ...state, selectedOrganization: organization };
 }

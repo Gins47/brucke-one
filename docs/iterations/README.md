@@ -13,7 +13,7 @@ Iteration files preserve their original scope, implementation records, and accep
 | [007 — Shelter availability and readiness](007-shelter-availability-and-readiness.md) | Implemented; the later physical-capacity decrease guard exists, while pre-existing inconsistent reports and deterministic concurrent testing remain outstanding. |
 | [008 — Public help-request intake](008-public-help-request-intake.md) | Backend scope accepted; real Redis verification pending, worker deferred. |
 | [009 — Manual shelter assignment](009-manual-shelter-assignment.md) | Complete; accepted by the user for the synthetic demo after the user-reported dashboard walkthrough. A separate follow-up review of the Checkpoint 3 fixes is not recorded. |
-| [010 — Admin session persistence](010-admin-session-persistence.md) | Planned; no implementation checkpoint selected. |
+| [010 — Admin session persistence](010-admin-session-persistence.md) | Complete; accepted by the user after user-reported local browser testing. The organization-switching late-401 limitation remains deferred. |
 
 ## Status definitions
 

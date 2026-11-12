@@ -94,7 +94,7 @@ describe('ShelterDashboard', () => {
       getOrganizationShelters: vi.fn().mockResolvedValue([reported, unreported, inactive]),
     } as unknown as ApiClient;
 
-    render(<ShelterDashboard accessToken="token" api={api} organizationId="org" />);
+    render(<ShelterDashboard sessionKey="token" api={api} organizationId="org" />);
 
     expect(await screen.findByText('Reported operational capacity')).toBeTruthy();
     expect(screen.getAllByText('80').length).toBeGreaterThan(0);
@@ -110,7 +110,7 @@ describe('ShelterDashboard', () => {
       getOrganizationShelters: vi.fn().mockResolvedValue([reported, unreported]),
     } as unknown as ApiClient;
 
-    render(<ShelterDashboard accessToken="token" api={api} organizationId="org" />);
+    render(<ShelterDashboard sessionKey="token" api={api} organizationId="org" />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Map marker: accepting-arrivals' }));
 
@@ -126,7 +126,7 @@ describe('ShelterDashboard', () => {
       getOrganizationShelters: vi.fn().mockResolvedValue([reported]),
     } as unknown as ApiClient;
 
-    render(<ShelterDashboard accessToken="token" api={api} organizationId="org" />);
+    render(<ShelterDashboard sessionKey="token" api={api} organizationId="org" />);
 
     const trigger = await screen.findByRole('button', { name: 'Details' });
     trigger.focus();
@@ -142,7 +142,7 @@ describe('ShelterDashboard', () => {
     } as unknown as ApiClient;
 
     const { container } = render(
-      <ShelterDashboard accessToken="token" api={api} organizationId="org" />,
+      <ShelterDashboard sessionKey="token" api={api} organizationId="org" />,
     );
 
     expect((await screen.findAllByText('Unreported shelter')).length).toBeGreaterThan(0);

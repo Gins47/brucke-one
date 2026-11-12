@@ -1,10 +1,11 @@
 # Project Status
 
-**Last updated:** 2026-11-11
+**Last updated:** 2026-11-12
 
-**Latest accepted iteration:** [009 — Manual Shelter Assignment](iterations/009-manual-shelter-assignment.md)
+**Latest accepted iteration:** [010 — Admin Session Persistence](iterations/010-admin-session-persistence.md)
 
-**Active implementation checkpoint:** None. Iteration 009 was accepted by the user for the synthetic-data demo; no new checkpoint is selected.
+**Active checkpoint:** None. Iteration 010 was accepted by the user for the
+synthetic-data demo after user-reported local browser testing.
 
 ## Delivered capabilities
 
@@ -28,6 +29,10 @@ The [final acceptance record](iterations/008-public-help-request-intake.md#7-fin
 - Concurrent assignment and availability attempts are tested without guaranteeing contention at a specific lock. Deterministic tests for competing assignments, assignment versus availability PUT, and parent closure remain follow-up work before real-world use.
 - The shelter API now rejects physical-capacity decreases. Reports made inconsistent before that guard existed may still require correction before assignment.
 - Iteration 009: the user verified the synthetic dashboard walkthrough and accepted the iteration. A separate follow-up review of the two prior Checkpoint 3 fixes is not recorded. See the [verification record](iterations/009-manual-shelter-assignment.md#checkpoint-4--final-verification-and-demo-documentation).
+- Iteration 010: a late `401` from an
+  earlier operations pagination request after an organization switch can clear
+  the current session; the user accepted this limitation for the single-org
+  synthetic demo. See [Checkpoint 2](iterations/010-admin-session-persistence.md#checkpoint-2--dashboard-session-restoration).
 - Desktop/mobile browser walkthrough and live map-tile checks remain unverified; see [Iteration 006](iterations/006-operations-dashboard-ui.md).
 - Real Redis/BullMQ and manual Redis Insight verification remain pending; see [Checkpoint 4C](iterations/008-public-help-request-intake.md#4c-bullmq-outbox-publisher).
 - BullMQ worker processing remains deferred.

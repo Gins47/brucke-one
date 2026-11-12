@@ -1,6 +1,6 @@
 # Iteration 010 — Admin Session Persistence
 
-**Status:** Planned
+**Status:** Complete — accepted by the user for the synthetic-data demo
 
 ## 1. Goal
 
@@ -23,7 +23,9 @@ The implementation will use the existing JWT in an HttpOnly browser cookie. It w
 2. The API sets an HttpOnly cookie containing the existing JWT and returns the admin’s identity without returning the JWT to JavaScript.
 3. The browser includes the cookie in subsequent API requests.
 4. After a page refresh, the dashboard calls GET /auth/me and restores the authenticated state.
-5. The admin selects an organization again after refreshing.
+5. The dashboard restores the selected organization from this tab's stored ID
+   only after validating it against the current organization list. If it is
+   absent or no longer available, the admin selects an organization again.
 6. Logout clears the browser cookie and frontend authentication state.
 7. An expired or invalid token requires the admin to log in again.
 
@@ -42,6 +44,8 @@ The existing Bearer-token login and authorization flow remain available for API 
 - Protection against cross-site requests for browser login, logout and cookie-authenticated state-changing requests.
 - Focused API and frontend tests.
 - Local configuration and manual verification documentation.
+- Tab-local persistence of the selected organization ID, validated against the
+  authenticated organization's current list before restoring the selection.
 
 ### Excluded
 
@@ -49,7 +53,7 @@ The existing Bearer-token login and authorization flow remain available for API 
 - Refresh tokens or automatic JWT renewal.
 - Redis-backed sessions.
 - New roles, account management or organization-level permissions.
-- Persisting the selected organization across refreshes.
+- Guaranteeing organization selection across tabs or browser restarts.
 - Production deployment or an assertion that the PoC is production-ready.
 
 ## 5. API and security decisions
@@ -198,9 +202,11 @@ Update the dashboard to use the cookie-based API flow.
 - Call /auth/me on application startup before redirecting protected pages.
 - Use credentialed API requests and the required custom header.
 - Keep the JWT out of React state, local storage and frontend request headers.
-- After a successful refresh, return the admin to organization selection.
+- After a successful refresh, validate the tab-local selected organization ID
+  against the current organization list; otherwise return to organization selection.
 - Call the logout endpoint and clear local state.
-- Preserve existing stale-response and cancellation protections.
+- Preserve existing stale-response and cancellation protections, subject to the
+  accepted demo exception recorded below.
 - Distinguish a confirmed unauthenticated response from a network failure during restoration.
 - If logout cannot reach the API, do not claim that the server-side cookie was cleared.
 
@@ -217,7 +223,61 @@ Reuse existing frontend tests where practical. Cover:
 
 **Acceptance:** Refreshing the dashboard preserves admin login without exposing the JWT to frontend JavaScript. Logout and expired-session behavior are clear to the user.
 
+**Status:** Complete for the single-admin, single-organization synthetic demo;
+accepted by the user with the deferred limitation below.
+
+**Implementation record (2026-11-11):** The dashboard uses browser login and credentialed cookie
+requests, restores the ADMIN identity through `/auth/me` before rendering
+protected pages. An approved follow-up now restores a tab-local organization ID
+only after validating it against the current organization list; a missing or
+invalid selection returns to organization selection. The ID is a UI preference,
+not authorization, and is cleared on logout or confirmed session expiry. A
+non-secret session key scopes UI requests; the JWT is not kept in frontend
+state or sent in Authorization headers. Cookie mutations include the required
+browser header. Network failures during restoration and logout provide retry;
+403 is distinguished from an expired session. Some stale work is invalidated,
+with the exception recorded below. Logout does not revoke a copied JWT.
+
+**Accepted demo limitation (2026-11-12):** If an operations-table “load more”
+request is pending when the operator switches organizations, a late `401` from
+the previous organization can reach the global handler before the table rejects
+the stale response. This can clear the current session and saved organization
+selection. The user accepts this exception to the broader stale-response
+requirement for the single-admin, single-organization synthetic demo; the issue
+is not fixed. Before presenting organization switching as reliable, cancel or
+otherwise invalidate organization-scoped pagination requests and ensure stale
+or aborted responses cannot trigger the global `401` handler. Verify that
+behavior with one focused regression test.
+
+Verification with Node 24.22.0: focused session/client tests passed (3 files,
+11 tests); the full frontend
+suite passed (14 files, 49 tests), as did frontend lint, build, and
+`git diff --check`. The agent did not perform a browser walkthrough; see the
+subsequent user-reported verification in Checkpoint 3.
+
+The later tab-local selection update passed focused session tests (2 files,
+12 tests), frontend lint and build, and `git diff --check` with Node 24.22.0.
+Storage may be unavailable; in that case selection remains in memory only.
+No guarantee is made for a browser restart or another tab.
+
 ### Checkpoint 3 — Final verification and documentation
+
+**Status:** Complete — accepted by the user for the synthetic-data demo.
+
+**Verification record (2026-11-12):** With Node 24.22.0, API unit tests
+passed (16 suites, 72 tests), isolated PostgreSQL API E2E passed (24 suites,
+169 tests), and frontend tests passed (14 files, 54 tests). API and frontend
+builds and non-mutating lint passed. API E2E rollback tests logged expected
+forced failures. Migrations were applied only to a dedicated disposable test
+database. The initial sandboxed API unit run could not open the CORS test's
+local socket; the authorized rerun passed.
+
+The agent could not perform a browser walkthrough because the browser access
+host was unavailable. The user subsequently reported performing local browser
+testing successfully and explicitly accepted Iteration 010 as complete. The
+specific test steps were not separately enumerated in the user's report. The
+late-401 limitation accepted for the single-organization demo remains
+unresolved.
 
 **Tasks**
 
@@ -227,7 +287,8 @@ Reuse existing frontend tests where practical. Cover:
   1. Log in.
   2. Select an organization and open a protected page.
   3. Refresh the browser and confirm login is restored.
-  4. Select an organization again.
+  4. Confirm a valid selected organization is restored in the same tab; choose
+     an organization if the saved selection is absent or no longer available.
   5. Log out and confirm protected access is no longer available through that browser.
   6. Verify expired or invalid session behavior.
 - Document local setup, cookie and origin configuration, Bearer compatibility and known limitations.

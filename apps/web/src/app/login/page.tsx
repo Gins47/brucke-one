@@ -14,10 +14,10 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (session.accessToken) {
+    if (session.sessionKey) {
       router.replace('/organizations');
     }
-  }, [router, session.accessToken]);
+  }, [router, session.sessionKey]);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

@@ -2,7 +2,7 @@
 
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DashboardOverview, getShelterStatus } from './dashboard-overview';
+import { DashboardOverview } from './dashboard-overview';
 import type { ApiClient, OrganizationDashboardOverview } from '@/lib/api-client';
 
 const organizationA = { id: 'org-a', code: 'A', name: 'Organization A', contactEmail: null, contactPhone: null, officeAddress: null, createdAt: '', updatedAt: '' };
@@ -23,7 +23,7 @@ afterEach(cleanup);
 describe('DashboardOverview', () => {
   it('renders counts from a successful overview response', async () => {
     const api = { getOrganizationOverview: vi.fn().mockResolvedValue(overview(6)) } as unknown as ApiClient;
-    render(<DashboardOverview accessToken="token" api={api} organization={organizationA} />);
+    render(<DashboardOverview sessionKey="token" api={api} organization={organizationA} />);
     expect(await screen.findByText('Active operations')).toBeTruthy();
     expect(screen.getByText('6')).toBeTruthy();
     expect(screen.getByText('Planned operations')).toBeTruthy();
@@ -39,12 +39,13 @@ describe('DashboardOverview', () => {
     );
     expect(screen.getByText('Pending approvals')).toBeTruthy();
     expect(screen.getByText('Not available yet')).toBeTruthy();
+    expect(screen.queryByText('Shelter status')).toBeNull();
     expect(screen.queryByRole('link', { name: /pending approvals/i })).toBeNull();
   });
 
   it('renders the error state when the overview request fails', async () => {
     const api = { getOrganizationOverview: vi.fn().mockRejectedValue(new Error('failed')) } as unknown as ApiClient;
-    render(<DashboardOverview accessToken="token" api={api} organization={organizationA} />);
+    render(<DashboardOverview sessionKey="token" api={api} organization={organizationA} />);
     expect((await screen.findByRole('alert')).textContent).toContain('Unable to load the dashboard overview.');
   });
 
@@ -52,8 +53,8 @@ describe('DashboardOverview', () => {
     const first = deferred<OrganizationDashboardOverview>();
     const second = deferred<OrganizationDashboardOverview>();
     const api = { getOrganizationOverview: vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise) } as unknown as ApiClient;
-    const view = render(<DashboardOverview accessToken="token" api={api} organization={organizationA} />);
-    view.rerender(<DashboardOverview accessToken="token" api={api} organization={organizationB} />);
+    const view = render(<DashboardOverview sessionKey="token" api={api} organization={organizationA} />);
+    view.rerender(<DashboardOverview sessionKey="token" api={api} organization={organizationB} />);
     await act(async () => { second.resolve(overview(9)); });
     expect(await screen.findByText('9')).toBeTruthy();
     await act(async () => { first.resolve(overview(7)); });
@@ -61,7 +62,4 @@ describe('DashboardOverview', () => {
     expect(screen.queryByText('7')).toBeNull();
   });
 
-  it('uses zero percent when no shelters exist', () => {
-    expect(getShelterStatus(0, 0)).toEqual({ active: 0, inactive: 0, activePercent: 0 });
-  });
 });

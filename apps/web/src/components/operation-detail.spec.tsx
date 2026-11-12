@@ -97,14 +97,14 @@ function deferred<T>() {
 afterEach(cleanup);
 
 describe('OperationDetail', () => {
-  it('renders map projection details and current regions', async () => {
+  it('renders map projection details without the affected regions section', async () => {
     const api = {
       getEmergencyOperationMap: vi.fn().mockResolvedValue(mapResponse('organization-a')),
     } as unknown as ApiClient;
 
     render(
       <OperationDetail
-        accessToken="token"
+        sessionKey="token"
         api={api}
         operationId="operation-1"
         organizationId="organization-a"
@@ -112,7 +112,13 @@ describe('OperationDetail', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Bavaria flood response' })).toBeTruthy();
-    expect(screen.getByText('Bavaria')).toBeTruthy();
+    expect(screen.getByText('Started (UTC)')).toBeTruthy();
+    expect(screen.getByText('20 Oct 2026, 10:00')).toBeTruthy();
+    expect(screen.getByText('Last updated (UTC)')).toBeTruthy();
+    expect(screen.getByText('20 Oct 2026, 11:00')).toBeTruthy();
+    expect(screen.getByText('Not recorded')).toBeTruthy();
+    expect(screen.getByText('Availability not reported').className).toContain('bg-red-100');
+    expect(screen.queryByRole('heading', { name: 'Affected regions' })).toBeNull();
     expect(screen.getByText('Munich Hall')).toBeTruthy();
     expect(screen.getByText('Map contains 1 shelter markers.')).toBeTruthy();
     expect(screen.getByText('1 active shelter lacks complete location data.')).toBeTruthy();
@@ -136,18 +142,19 @@ describe('OperationDetail', () => {
       getOperatorHelpRequests: vi.fn().mockResolvedValue({ items: [{ id: 'request-1', requesterName: 'Test person', requesterPhone: '123', requesterEmail: null, groupSize: 3, locationDescription: 'Test', medicalSupportNeeded: false, canTravelIndependently: true }], nextCursor: null }),
       assignHelpRequest: vi.fn().mockResolvedValue({ shelterName: 'Munich Hall', reservedGroupSize: 3 }),
     } as unknown as ApiClient;
-    render(<OperationDetail accessToken="token" api={api} operationId="operation-1" organizationId="organization-a" />);
+    render(<OperationDetail sessionKey="token" api={api} operationId="operation-1" organizationId="organization-a" />);
     fireEvent.click(await screen.findByRole('tab', { name: 'Help requests' }));
     fireEvent.click((await screen.findAllByRole('button', { name: 'Review & assign' }))[0]);
     fireEvent.click(screen.getByRole('radio', { name: /Munich Hall/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm assignment' }));
     expect(await screen.findByText(/Assignment confirmed/)).toBeTruthy();
     fireEvent.click(screen.getByRole('tab', { name: 'Shelters' }));
+    expect((await screen.findByText('Accepting arrivals')).className).toContain('bg-emerald-100');
     expect(await screen.findByText('87')).toBeTruthy();
     expect(screen.getByText('3')).toBeTruthy();
   });
 
-  it('renders empty map and region states', async () => {
+  it('renders the empty shelter state', async () => {
     const response = mapResponse('organization-a');
     response.activeShelters = [];
     response.activeShelterAvailability = [];
@@ -159,7 +166,7 @@ describe('OperationDetail', () => {
 
     render(
       <OperationDetail
-        accessToken="token"
+        sessionKey="token"
         api={api}
         operationId="operation-1"
         organizationId="organization-a"
@@ -167,7 +174,6 @@ describe('OperationDetail', () => {
     );
 
     expect(await screen.findByText('No active shelters are available.')).toBeTruthy();
-    expect(screen.getByText('No current affected regions are recorded.')).toBeTruthy();
   });
 
   it('does not display an operation from another selected organization', async () => {
@@ -177,7 +183,7 @@ describe('OperationDetail', () => {
 
     render(
       <OperationDetail
-        accessToken="token"
+        sessionKey="token"
         api={api}
         operationId="operation-1"
         organizationId="organization-a"
@@ -201,7 +207,7 @@ describe('OperationDetail', () => {
 
     render(
       <OperationDetail
-        accessToken="token"
+        sessionKey="token"
         api={api}
         operationId="operation-1"
         organizationId="organization-a"
@@ -229,7 +235,7 @@ describe('OperationDetail', () => {
     } as unknown as ApiClient;
     const view = render(
       <OperationDetail
-        accessToken="token"
+        sessionKey="token"
         api={api}
         operationId="operation-1"
         organizationId="organization-a"
@@ -238,7 +244,7 @@ describe('OperationDetail', () => {
 
     view.rerender(
       <OperationDetail
-        accessToken="token"
+        sessionKey="token"
         api={api}
         operationId="operation-1"
         organizationId="organization-b"

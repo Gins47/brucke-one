@@ -12,15 +12,15 @@ export default function SheltersPage() {
   const session = useSession();
 
   useEffect(() => {
-    if (!session.accessToken) router.replace('/login');
+    if (!session.sessionKey) router.replace('/login');
     else if (!session.selectedOrganization) router.replace('/organizations');
-  }, [router, session.accessToken, session.selectedOrganization]);
+  }, [router, session.sessionKey, session.selectedOrganization]);
 
-  if (!session.accessToken || !session.selectedOrganization) return null;
+  if (!session.sessionKey || !session.selectedOrganization) return null;
 
   return (
     <DashboardShell
-      onLogout={() => { session.logout(); router.replace('/login'); }}
+      onLogout={() => { void session.logout(); }}
       onSelectOrganization={(organizationId) => {
         const organization = session.organizations.find((item) => item.id === organizationId);
         if (organization) session.selectOrganization(organization);
@@ -34,7 +34,7 @@ export default function SheltersPage() {
         <p className="mt-3 max-w-3xl text-slate-600">
           Monitor active shelter capacity, reported availability, and operational follow-up needs.
         </p>
-        <ShelterDashboard accessToken={session.accessToken} api={session.api} key={session.selectedOrganization.id} organizationId={session.selectedOrganization.id} />
+        <ShelterDashboard sessionKey={session.sessionKey} api={session.api} key={session.selectedOrganization.id} organizationId={session.selectedOrganization.id} />
       </section>
     </DashboardShell>
   );

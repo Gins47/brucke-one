@@ -20,9 +20,9 @@ remove the container and its volume when they finish. They use
 
 When the local frontend runs on `http://localhost:3001`, set
 `NODE_ENV=development` and `WEB_ORIGIN=http://localhost:3001` in the API `.env`.
-The API then permits only that origin and the `Content-Type` and `Authorization`
-headers through CORS. CORS is not enabled by this configuration outside
-development.
+The API enables credentialed CORS for that origin and allows `Content-Type`,
+`Authorization`, and `X-Brucke-Request`. This configuration enables CORS only
+in development.
 
 ## Runtime requirement
 
@@ -115,8 +115,8 @@ curl --request POST http://localhost:3000/auth/login \
 }
 ```
 
-The public help-request endpoints are documented below. All other existing API
-routes require a bearer token for a user with a current `ADMIN` role
+The public help-request endpoints and browser login/logout are documented below.
+Protected API routes require a valid bearer token or browser cookie for a user with a current `ADMIN` role
 assignment. Set `JWT_SECRET` to a configured secret of at least 32 bytes, and set
 `JWT_EXPIRES_IN`, `JWT_ISSUER`, and `JWT_AUDIENCE` in `.env`. The local
 development example uses a 24-hour expiry; choose an explicit security policy
@@ -128,6 +128,17 @@ health endpoint. Send the token with protected requests:
 curl http://localhost:3000/organizations \
   --header 'Authorization: Bearer <access-token>'
 ```
+
+The local dashboard uses `POST /auth/browser/login` with the same credentials,
+the configured `Origin`, and `X-Brucke-Request: 1`. It returns the user ID and
+username and sets a host-only HttpOnly, SameSite=Lax cookie whose expiration
+matches the JWT. `GET /auth/me` returns the current authorized identity, and
+`POST /auth/browser/logout` clears the cookie. Browser login, logout, and
+cookie-authenticated mutations require the trusted origin and custom header.
+When an Authorization header is present it takes precedence, including when
+its token is invalid. Local HTTP without `Secure` is limited to the documented
+localhost development configuration; HTTPS deployments require `Secure`.
+Clearing the cookie does not revoke a copied token.
 
 ADMIN access is application-wide in this development setup; it does not
 provide organization-level isolation. This is a single trusted-admin setup

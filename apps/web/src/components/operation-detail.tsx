@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { OperationMapPanel } from './maps/operation-map-panel';
 import { HelpRequestsTab } from './help-requests-tab';
+import { ShelterStatusPill } from './shelter-status-pill';
 import {
   ApiError,
   type ApiClient,
@@ -26,18 +27,18 @@ const detailTabs = [
 type DetailTab = (typeof detailTabs)[number]['id'];
 
 /** Resets operation state when the session or selected scope changes. */
-export function OperationDetail(props: { accessToken: string; api: ApiClient; operationId: string; organizationId: string }) {
-  return <OperationDetailContent key={`${props.accessToken}:${props.organizationId}:${props.operationId}`} {...props} />;
+export function OperationDetail(props: { sessionKey: string; api: ApiClient; operationId: string; organizationId: string }) {
+  return <OperationDetailContent key={`${props.sessionKey}:${props.organizationId}:${props.operationId}`} {...props} />;
 }
 
 /** Loads and displays a selected operation only when it belongs to the current organization. */
 function OperationDetailContent({
-  accessToken,
+  sessionKey,
   api,
   operationId,
   organizationId,
 }: {
-  accessToken: string;
+  sessionKey: string;
   api: ApiClient;
   operationId: string;
   organizationId: string;
@@ -50,7 +51,7 @@ function OperationDetailContent({
   const [availabilityRefresh, setAvailabilityRefresh] = useState<'ready' | 'loading' | 'error'>('ready');
   const refreshController = useRef<AbortController | null>(null);
 
-  useEffect(() => () => { refreshController.current?.abort(); }, [accessToken, api, operationId, organizationId]);
+  useEffect(() => () => { refreshController.current?.abort(); }, [sessionKey, api, operationId, organizationId]);
 
   /** Refreshes the operation projection after a confirmed assignment. */
   const refreshAvailability = async () => {
@@ -59,7 +60,7 @@ function OperationDetailContent({
     refreshController.current = controller;
     setAvailabilityRefresh('loading');
     try {
-      const data = await api.getEmergencyOperationMap(accessToken, operationId, controller.signal);
+      const data = await api.getEmergencyOperationMap(sessionKey, operationId, controller.signal);
       if (controller.signal.aborted) return;
       if (data.operation.id !== operationId || data.operation.organizationId !== organizationId) throw new Error('Operation scope changed');
       setState({ status: 'ready', data });
@@ -101,7 +102,7 @@ function OperationDetailContent({
     let isCurrentRequest = true;
 
     void api
-      .getEmergencyOperationMap(accessToken, operationId, controller.signal)
+      .getEmergencyOperationMap(sessionKey, operationId, controller.signal)
       .then((data) => {
         if (!isCurrentRequest) {
           return;
@@ -132,7 +133,7 @@ function OperationDetailContent({
       isCurrentRequest = false;
       controller.abort();
     };
-  }, [accessToken, api, operationId, organizationId]);
+  }, [sessionKey, api, operationId, organizationId]);
 
   if (state.status === 'loading') {
     return <p className="mt-8 text-slate-600">Loading operation details…</p>;
@@ -162,7 +163,6 @@ function OperationDetailContent({
 
   const {
     operation,
-    affectedRegions,
     activeShelters,
     activeShelterAvailability,
     unmappedActiveShelterCount,
@@ -184,9 +184,9 @@ function OperationDetailContent({
           <Detail label="Type" value={operation.type} />
           <Detail label="Severity" value={operation.severity} />
           <Detail label="Country" value={operation.countryCode} />
-          <Detail label="Started" value={formatDate(operation.startedAt)} />
-          <Detail label="Ended" value={formatDate(operation.endedAt)} />
-          <Detail label="Last updated" value={formatDate(operation.updatedAt)} />
+          <Detail label="Started (UTC)" value={formatDate(operation.startedAt)} />
+          <Detail label="Ended (UTC)" value={formatDate(operation.endedAt)} />
+          <Detail label="Last updated (UTC)" value={formatDate(operation.updatedAt)} />
         </dl>
       </article>
 
@@ -242,7 +242,7 @@ function OperationDetailContent({
           {activeTab === 'shelters' ? (
             availabilityRefresh === 'ready' ? <SheltersTab shelters={activeShelterAvailability} /> : <p className="text-slate-700">{availabilityRefresh === 'loading' ? 'Refreshing shelter availability…' : 'Shelter availability could not be refreshed.'}</p>
           ) : activeTab === 'people' && operation.id === operationId && operation.organizationId === organizationId ? (
-            <HelpRequestsTab key={`${accessToken}-${organizationId}-${operationId}`} accessToken={accessToken} api={api} operationId={operationId} onAssignmentConfirmed={() => void refreshAvailability()} />
+            <HelpRequestsTab key={`${sessionKey}-${organizationId}-${operationId}`} sessionKey={sessionKey} api={api} operationId={operationId} onAssignmentConfirmed={() => void refreshAvailability()} />
           ) : (
             <p className="rounded-xl border border-slate-200 bg-slate-50 p-5 text-slate-600">
               Not available yet.
@@ -251,23 +251,6 @@ function OperationDetailContent({
         </div>
       </section>
 
-      <section aria-labelledby="regions-heading">
-        <h2 className="text-xl font-bold text-slate-950" id="regions-heading">Affected regions</h2>
-        {affectedRegions.length === 0 ? (
-          <p className="mt-3 text-slate-600">No current affected regions are recorded.</p>
-        ) : (
-          <ul className="mt-3 grid gap-3 sm:grid-cols-2" role="list">
-            {affectedRegions.map((region) => (
-              <li className="rounded-lg border border-slate-200 bg-white p-4" key={region.id}>
-                <p className="font-semibold text-slate-950">{region.regionName}</p>
-                <p className="mt-1 text-sm text-slate-600">
-                  {region.countryCode} · {region.regionCode}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </section>
   );
 }
@@ -315,7 +298,7 @@ function SheltersTab({
                   <td className="px-4 py-3">{shelter.availability?.currentOccupancy ?? 'Not reported'}</td>
                   <td className="px-4 py-3">{shelter.availability?.reservedPlaces ?? 'Not reported'}</td>
                   <td className="px-4 py-3">{shelter.availability?.availablePlaces ?? 'Not reported'}</td>
-                  <td className="px-4 py-3">{!shelter.availability ? 'Availability not reported' : shelter.availability.acceptingArrivals ? 'Accepting arrivals' : 'Not accepting arrivals'}</td>
+                  <td className="px-4 py-3"><ShelterStatusPill status={!shelter.availability ? 'availability-not-reported' : shelter.availability.acceptingArrivals ? 'accepting-arrivals' : 'not-accepting-arrivals'} /></td>
                 </tr>
               ))}
             </tbody>
@@ -334,5 +317,8 @@ function formatDate(value: string | null): string {
 
   const date = new Date(value);
 
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'UTC', year: 'numeric', month: 'short', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).format(date);
 }

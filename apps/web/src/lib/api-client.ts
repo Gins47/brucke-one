@@ -1,8 +1,4 @@
-export type LoginResponse = {
-  accessToken: string;
-  tokenType: 'Bearer';
-  expiresIn: string;
-};
+export type AdminIdentity = { id: string; username: string };
 
 export type Organization = {
   id: string;
@@ -169,16 +165,18 @@ export class ApiError extends Error {
 
 /** Calls the API routes used by the authenticated dashboard. */
 export function createApiClient(baseUrl: string, onUnauthorized: () => void) {
-  const request = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
+  const request = async <T>(path: string, init: RequestInit = {}, notifyUnauthorized = true): Promise<T> => {
     let response: Response;
     try {
-      response = await fetch(`${baseUrl}${path}`, init);
+      const headers = new Headers(init.headers);
+      if (init.method && !['GET', 'HEAD', 'OPTIONS'].includes(init.method)) headers.set('X-Brucke-Request', '1');
+      response = await fetch(`${baseUrl}${path}`, { ...init, headers, credentials: 'include' });
     } catch {
       throw new ApiError(0, 'Unable to reach the API. Check that it is running.');
     }
 
     if (!response.ok) {
-      if (response.status === 401) {
+      if (response.status === 401 && notifyUnauthorized && !init.signal?.aborted) {
         onUnauthorized();
       }
       throw new ApiError(response.status, 'The API request could not be completed.');
@@ -190,52 +188,54 @@ export function createApiClient(baseUrl: string, onUnauthorized: () => void) {
   return {
     /** Sends credentials to the public login endpoint. */
     login: (username: string, password: string) =>
-      request<LoginResponse>('/auth/login', {
+      request<AdminIdentity>('/auth/browser/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
-      }),
+      }, false),
+    /** Restores the identity from the browser cookie. */
+    getMe: (signal?: AbortSignal) => request<AdminIdentity>('/auth/me', { signal }, false),
+    /** Clears the browser cookie. */
+    logout: () => request<{ ok: boolean }>('/auth/browser/logout', { method: 'POST' }, false),
     /** Loads organizations for the currently authenticated administrator. */
-    getOrganizations: (accessToken: string, signal?: AbortSignal) =>
+    getOrganizations: (_sessionKey: string, signal?: AbortSignal) =>
       request<Organization[]>('/organizations', {
-        headers: { Authorization: `Bearer ${accessToken}` },
         signal,
       }),
     /** Loads the dashboard overview for one selected organization. */
-    getOrganizationOverview: (accessToken: string, organizationId: string, signal?: AbortSignal) =>
+    getOrganizationOverview: (_sessionKey: string, organizationId: string, signal?: AbortSignal) =>
       request<OrganizationDashboardOverview>(`/dashboard/organizations/${organizationId}/overview`, {
-        headers: { Authorization: `Bearer ${accessToken}` }, signal,
+        signal,
       }),
     /** Loads all shelters before the small dashboard filters them by organization. */
-    getShelters: (accessToken: string, signal?: AbortSignal) =>
+    getShelters: (_sessionKey: string, signal?: AbortSignal) =>
       request<Shelter[]>('/shelters', {
-        headers: { Authorization: `Bearer ${accessToken}` },
         signal,
       }),
     /** Loads the selected organization's shelter dashboard projection. */
     getOrganizationShelters: (
-      accessToken: string,
+      _sessionKey: string,
       organizationId: string,
       signal?: AbortSignal,
     ) =>
       request<DashboardShelter[]>(
         `/dashboard/organizations/${organizationId}/shelters`,
-        { headers: { Authorization: `Bearer ${accessToken}` }, signal },
+        { signal },
       ),
     /** Loads one selected-organization shelter with its current active context. */
     getOrganizationShelter: (
-      accessToken: string,
+      _sessionKey: string,
       organizationId: string,
       shelterId: string,
       signal?: AbortSignal,
     ) =>
       request<DashboardShelter>(
         `/dashboard/organizations/${organizationId}/shelters/${shelterId}`,
-        { headers: { Authorization: `Bearer ${accessToken}` }, signal },
+        { signal },
       ),
     /** Replaces one active shelter activation's complete availability report. */
     replaceShelterActivationAvailability: (
-      accessToken: string,
+      _sessionKey: string,
       activationId: string,
       input: Omit<ShelterAvailability, 'availablePlaces' | 'reportedAt' | 'availabilityNote'> & {
         availabilityNote?: string;
@@ -247,7 +247,6 @@ export function createApiClient(baseUrl: string, onUnauthorized: () => void) {
         {
           method: 'PUT',
           headers: {
-            Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(input),
@@ -256,7 +255,7 @@ export function createApiClient(baseUrl: string, onUnauthorized: () => void) {
       ),
     /** Loads one cursor-paginated operation page for a selected organization. */
     getOrganizationOperations: (
-      accessToken: string,
+      _sessionKey: string,
       organizationId: string,
       query: { limit?: number; cursor?: string; status?: OperationStatus },
       signal?: AbortSignal,
@@ -278,35 +277,33 @@ export function createApiClient(baseUrl: string, onUnauthorized: () => void) {
       return request<DashboardOperationsPage>(
         `/dashboard/organizations/${organizationId}/operations${suffix}`,
         {
-          headers: { Authorization: `Bearer ${accessToken}` },
           signal,
         },
       );
     },
     /** Loads a page of pending or reserved requests for an operation. */
-    getOperatorHelpRequests: (accessToken: string, operationId: string, status: 'PENDING_REVIEW' | 'RESERVED', cursor?: string, signal?: AbortSignal) => {
+    getOperatorHelpRequests: (_sessionKey: string, operationId: string, status: 'PENDING_REVIEW' | 'RESERVED', cursor?: string, signal?: AbortSignal) => {
       const query = new URLSearchParams({ status });
       if (cursor) query.set('cursor', cursor);
       return request<HelpRequestPage>(`/emergency-operations/${operationId}/help-requests?${query}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }, signal,
+        signal,
       });
     },
     /** Assigns a pending request to a selected shelter activation. */
-    assignHelpRequest: (accessToken: string, operationId: string, requestId: string, shelterActivationId: string, signal?: AbortSignal) =>
+    assignHelpRequest: (_sessionKey: string, operationId: string, requestId: string, shelterActivationId: string, signal?: AbortSignal) =>
       request<HelpRequestAssignment>(`/emergency-operations/${operationId}/help-requests/${requestId}/assignment`, {
-        method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shelterActivationId }), signal,
       }),
     /** Loads the read-only map projection for one emergency operation. */
     getEmergencyOperationMap: (
-      accessToken: string,
+      _sessionKey: string,
       operationId: string,
       signal?: AbortSignal,
     ) =>
       request<DashboardOperationMap>(
         `/dashboard/emergency-operations/${operationId}/map`,
         {
-          headers: { Authorization: `Bearer ${accessToken}` },
           signal,
         },
       ),

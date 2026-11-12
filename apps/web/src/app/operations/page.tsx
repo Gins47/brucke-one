@@ -33,16 +33,16 @@ function OperationsPageContent() {
   const status = operationStatuses.find((item) => item === requestedStatus);
 
   useEffect(() => {
-    if (!session.accessToken) {
+    if (!session.sessionKey) {
       router.replace('/login');
       return;
     }
     if (!session.selectedOrganization) {
       router.replace('/organizations');
     }
-  }, [router, session.accessToken, session.selectedOrganization]);
+  }, [router, session.sessionKey, session.selectedOrganization]);
 
-  if (!session.accessToken || !session.selectedOrganization) {
+  if (!session.sessionKey || !session.selectedOrganization) {
     return null;
   }
 
@@ -63,8 +63,7 @@ function OperationsPageContent() {
   return (
     <DashboardShell
       onLogout={() => {
-        session.logout();
-        router.replace('/login');
+        void session.logout();
       }}
       onSelectOrganization={selectOrganization}
       organizations={session.organizations}
@@ -91,7 +90,7 @@ function OperationsPageContent() {
           ))}
         </select>
         <OperationsTable
-          accessToken={session.accessToken}
+          sessionKey={session.sessionKey}
           api={session.api}
           emptyMessage="No operations match this status."
           key={`${session.selectedOrganization.id}-${status ?? 'ALL'}`}

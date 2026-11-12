@@ -7,12 +7,12 @@ type Status = 'PENDING_REVIEW' | 'RESERVED';
 type ShelterOption = DashboardOperationMap['activeShelterAvailability'][number];
 
 /** Resets the queue whenever its operation or authenticated session changes. */
-export function HelpRequestsTab(props: { accessToken: string; api: ApiClient; operationId: string; onAssignmentConfirmed?: () => void }) {
-  return <HelpRequestsContent key={`${props.accessToken}:${props.operationId}`} {...props} />;
+export function HelpRequestsTab(props: { sessionKey: string; api: ApiClient; operationId: string; onAssignmentConfirmed?: () => void }) {
+  return <HelpRequestsContent key={`${props.sessionKey}:${props.operationId}`} {...props} />;
 }
 
 /** Loads one operation's paginated queue and manages assignment review. */
-function HelpRequestsContent({ accessToken, api, operationId, onAssignmentConfirmed }: { accessToken: string; api: ApiClient; operationId: string; onAssignmentConfirmed?: () => void }) {
+function HelpRequestsContent({ sessionKey, api, operationId, onAssignmentConfirmed }: { sessionKey: string; api: ApiClient; operationId: string; onAssignmentConfirmed?: () => void }) {
   const [status, setStatus] = useState<Status>('PENDING_REVIEW');
   const [requests, setRequests] = useState<OperatorHelpRequest[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -37,8 +37,8 @@ function HelpRequestsContent({ accessToken, api, operationId, onAssignmentConfir
     const current = ++generation.current;
     controllerRef.current = controller;
     void Promise.all([
-      api.getOperatorHelpRequests(accessToken, operationId, status, undefined, controller.signal),
-      api.getEmergencyOperationMap(accessToken, operationId, controller.signal),
+      api.getOperatorHelpRequests(sessionKey, operationId, status, undefined, controller.signal),
+      api.getEmergencyOperationMap(sessionKey, operationId, controller.signal),
     ]).then(([page, map]) => {
       if (generation.current !== current) return;
       setRequests(page.items);
@@ -55,7 +55,7 @@ function HelpRequestsContent({ accessToken, api, operationId, onAssignmentConfir
       setLoading(false);
     });
     return () => { if (generation.current === current) generation.current = current + 1; controller.abort(); };
-  }, [accessToken, api, operationId, status, revision]);
+  }, [sessionKey, api, operationId, status, revision]);
 
   /** Reloads the first queue page and the authoritative shelter projection. */
   const refresh = () => {
@@ -82,7 +82,7 @@ function HelpRequestsContent({ accessToken, api, operationId, onAssignmentConfir
     const current = generation.current;
     setLoadingMore(true);
     try {
-      const page = await api.getOperatorHelpRequests(accessToken, operationId, status, cursor, controllerRef.current?.signal);
+      const page = await api.getOperatorHelpRequests(sessionKey, operationId, status, cursor, controllerRef.current?.signal);
       if (generation.current !== current) return;
       setRequests((items) => [...items, ...page.items]);
       setCursor(page.nextCursor);
@@ -101,7 +101,7 @@ function HelpRequestsContent({ accessToken, api, operationId, onAssignmentConfir
     setPanelError('');
     setMessage('');
     try {
-      const result = await api.assignHelpRequest(accessToken, operationId, review.id, selection, controllerRef.current?.signal);
+      const result = await api.assignHelpRequest(sessionKey, operationId, review.id, selection, controllerRef.current?.signal);
       if (generation.current !== current) return;
       setSaving(false);
       onAssignmentConfirmed?.();
@@ -202,7 +202,7 @@ function ReviewDialog({ request, shelters, operationActive, loading, saving, sel
 function Answer({ value, attentionValue }: { value: boolean | null | undefined; attentionValue: boolean }) {
   const reported = typeof value === 'boolean';
   const attention = reported && value === attentionValue;
-  return <span className={`inline-block rounded-md border px-2 py-1 text-xs font-semibold ${!reported ? 'border-slate-400 bg-slate-100 text-slate-900' : attention ? 'border-amber-500 bg-amber-200 text-amber-950' : 'border-blue-400 bg-blue-100 text-blue-950'}`}>{reported ? (value ? 'Yes' : 'No') : 'Not reported'}</span>;
+  return <span className={`inline-block rounded-md border px-2 py-1 text-xs font-semibold ${!reported ? 'border-slate-400 bg-slate-100 text-slate-900' : attention ? 'border-red-400 bg-red-100 text-red-950' : 'border-green-400 bg-green-100 text-green-950'}`}>{reported ? (value ? 'Yes' : 'No') : 'Not reported'}</span>;
 }
 
 /** Renders a labeled value in a request summary. */

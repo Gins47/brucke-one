@@ -15,9 +15,10 @@ import type {
   ShelterDashboardMapMarker,
   ShelterDashboardMarkerStatus,
 } from './maps/shelter-dashboard-map';
+import { ShelterStatusPill } from './shelter-status-pill';
 
 type ShelterDashboardProps = {
-  accessToken: string;
+  sessionKey: string;
   organizationId: string;
   api: ApiClient;
 };
@@ -29,7 +30,7 @@ type ShelterDashboardState = {
 
 /** Displays the selected organization's shelter readiness without treating missing reports as zero. */
 export function ShelterDashboard({
-  accessToken,
+  sessionKey,
   organizationId,
   api,
 }: ShelterDashboardProps) {
@@ -47,7 +48,7 @@ export function ShelterDashboard({
     const controller = new AbortController();
 
     void api
-      .getOrganizationShelters(accessToken, organizationId, controller.signal)
+      .getOrganizationShelters(sessionKey, organizationId, controller.signal)
       .then((shelters) => {
         if (!controller.signal.aborted) {
           setState({ status: 'ready', shelters });
@@ -63,7 +64,7 @@ export function ShelterDashboard({
       });
 
     return () => controller.abort();
-  }, [accessToken, api, organizationId]);
+  }, [sessionKey, api, organizationId]);
 
   /** Opens the quick view and keeps the actual trigger for focus restoration. */
   const openQuickView = (
@@ -526,32 +527,7 @@ function getShelterStatus(shelter: DashboardShelter): ShelterDashboardMarkerStat
 
 /** Renders a text status that stays meaningful without its accompanying colour. */
 function StatusPill({ shelter }: { shelter: DashboardShelter }) {
-  const status = getShelterStatus(shelter);
-  const presentation: Record<ShelterDashboardMarkerStatus, { label: string; color: string }> = {
-    'accepting-arrivals': {
-      label: 'Accepting arrivals',
-      color: 'bg-emerald-100 text-emerald-800',
-    },
-    'not-accepting-arrivals': {
-      label: 'Not accepting arrivals',
-      color: 'bg-amber-100 text-amber-900',
-    },
-    'availability-not-reported': {
-      label: 'Availability not reported',
-      color: 'bg-red-100 text-red-800',
-    },
-    'no-active-operation': {
-      label: 'No active operation',
-      color: 'bg-slate-200 text-slate-800',
-    },
-  };
-  const { label, color } = presentation[status];
-
-  return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${color}`}>
-      {label}
-    </span>
-  );
+  return <ShelterStatusPill status={getShelterStatus(shelter)} />;
 }
 
 /** Uses a native dialog for quick details and restores focus to the original trigger. */

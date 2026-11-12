@@ -1,29 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import {
-  clearSession,
-  initialSessionState,
-  selectOrganization,
-  startSession,
-} from './session-state';
+import { clearSession, initialSessionState, selectOrganization, startSession } from './session-state';
 
-const firstOrganization = {
-  id: '11111111-1111-1111-1111-111111111111', code: 'FIRST', name: 'First organization', contactEmail: null, contactPhone: null, officeAddress: null, createdAt: '', updatedAt: '',
-};
-const secondOrganization = { ...firstOrganization, id: '22222222-2222-2222-2222-222222222222', code: 'SECOND', name: 'Second organization' };
+const user = { id: 'user-1', username: 'admin' };
+const first = { id: '1', code: 'FIRST', name: 'First', contactEmail: null, contactPhone: null, officeAddress: null, createdAt: '', updatedAt: '' };
+const second = { ...first, id: '2', name: 'Second' };
 
 describe('session state', () => {
-  it('starts only in memory and clears token and selected organization on logout', () => {
-    const selected = selectOrganization(startSession('access-token'), firstOrganization);
-
-    expect(selected.accessToken).toBe('access-token');
+  it('clears the identity and selected organization on logout', () => {
+    const selected = selectOrganization(startSession(user, 'session-1'), first);
+    expect(selected.user).toEqual(user);
     expect(clearSession()).toEqual(initialSessionState);
-    expect(initialSessionState.accessToken).toBeNull();
   });
-
-  it('replaces the selected organization when switching', () => {
-    const firstSelection = selectOrganization(startSession('access-token'), firstOrganization);
-    const secondSelection = selectOrganization(firstSelection, secondOrganization);
-
-    expect(secondSelection.selectedOrganization).toEqual(secondOrganization);
+  it('replaces the selected organization', () => {
+    expect(selectOrganization(selectOrganization(startSession(user, 'session-1'), first), second).selectedOrganization).toEqual(second);
   });
 });

@@ -64,7 +64,7 @@ describe('OperationsTable', () => {
 
     render(
       <OperationsTable
-        accessToken="token"
+        sessionKey="token"
         api={api}
         emptyMessage="No operations."
         organization={organizationA}
@@ -74,6 +74,10 @@ describe('OperationsTable', () => {
     );
 
     expect(await screen.findByText('First operation')).toBeTruthy();
+    expect(screen.getByText('HIGH').className).toContain('bg-red-50');
+    expect(screen.getByText('ACTIVE').className).toContain('bg-green-50');
+    expect(screen.getByRole('columnheader', { name: 'Updated (UTC)' })).toBeTruthy();
+    expect(screen.getByText('20 Oct 2026, 10:00')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'First operation' }).getAttribute('href')).toBe(
       '/operations/first',
     );
@@ -103,7 +107,7 @@ describe('OperationsTable', () => {
     } as unknown as ApiClient;
     const view = render(
       <OperationsTable
-        accessToken="token"
+        sessionKey="token"
         api={api}
         emptyMessage="No operations."
         organization={organizationA}
@@ -114,7 +118,7 @@ describe('OperationsTable', () => {
 
     view.rerender(
       <OperationsTable
-        accessToken="token"
+        sessionKey="token"
         api={api}
         emptyMessage="No operations."
         organization={organizationB}

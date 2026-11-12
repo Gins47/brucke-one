@@ -34,7 +34,7 @@ afterEach(cleanup);
 describe('HelpRequestsTab', () => {
   it('renders a pending table and opens request details with eligible shelter choices', async () => {
     const api = apiFixture();
-    render(<HelpRequestsTab accessToken="token" api={api as unknown as ApiClient} operationId="op-1" />);
+    render(<HelpRequestsTab sessionKey="token" api={api as unknown as ApiClient} operationId="op-1" />);
     expect(await screen.findByRole('table')).toBeTruthy();
     expect(api.getOperatorHelpRequests).toHaveBeenCalledWith('token', 'op-1', 'PENDING_REVIEW', undefined, expect.any(AbortSignal));
     const dialog = await openReview();
@@ -50,25 +50,25 @@ describe('HelpRequestsTab', () => {
       { ...pending, id: 'request-2', requesterName: 'Second Person', medicalSupportNeeded: false, canTravelIndependently: true },
       { ...pending, id: 'request-3', requesterName: 'Third Person', medicalSupportNeeded: null, canTravelIndependently: undefined },
     ], nextCursor: null });
-    render(<HelpRequestsTab accessToken="token" api={api as unknown as ApiClient} operationId="op-1" />);
+    render(<HelpRequestsTab sessionKey="token" api={api as unknown as ApiClient} operationId="op-1" />);
     const table = await screen.findByRole('table');
     const rows = within(table).getAllByRole('row').slice(1);
     const answers = rows.map((row) => within(row).getAllByRole('cell').slice(2, 4).map((cell) => cell.querySelector('span')!));
     expect(answers.map((row) => row.map((answer) => answer.textContent))).toEqual([['Yes', 'No'], ['No', 'Yes'], ['Not reported', 'Not reported']]);
-    expect(answers[0].every((answer) => answer.className.includes('border-amber-500') && answer.className.includes('bg-amber-200'))).toBe(true);
-    expect(answers[1].every((answer) => answer.className.includes('border-blue-400') && answer.className.includes('bg-blue-100'))).toBe(true);
+    expect(answers[0].every((answer) => answer.className.includes('border-red-400') && answer.className.includes('bg-red-100') && answer.className.includes('text-red-950'))).toBe(true);
+    expect(answers[1].every((answer) => answer.className.includes('border-green-400') && answer.className.includes('bg-green-100') && answer.className.includes('text-green-950'))).toBe(true);
     expect(answers[2].every((answer) => answer.className.includes('border-slate-400') && answer.className.includes('bg-slate-100'))).toBe(true);
     const dialog = await openReview();
     const medical = within(dialog).getByText('Medical support needed').nextElementSibling?.querySelector('span');
     const travel = within(dialog).getByText('Can travel independently').nextElementSibling?.querySelector('span');
     expect(medical?.textContent).toBe('Yes');
     expect(travel?.textContent).toBe('No');
-    expect(medical?.className).toContain('border-amber-500');
-    expect(travel?.className).toContain('border-amber-500');
+    expect(medical?.className).toContain('border-red-400');
+    expect(travel?.className).toContain('border-red-400');
   });
   it('submits a selected shelter and refreshes the confirmed assignment', async () => {
     const api = apiFixture();
-    render(<HelpRequestsTab accessToken="token" api={api as unknown as ApiClient} operationId="op-1" />);
+    render(<HelpRequestsTab sessionKey="token" api={api as unknown as ApiClient} operationId="op-1" />);
     const dialog = await openReview();
     fireEvent.click(within(dialog).getByRole('radio', { name: /Test Hall/ }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm assignment' }));
@@ -79,7 +79,7 @@ describe('HelpRequestsTab', () => {
   it('refreshes after a conflict without showing success', async () => {
     const api = apiFixture();
     api.assignHelpRequest.mockRejectedValue(new ApiError(409, 'Conflict'));
-    render(<HelpRequestsTab accessToken="token" api={api as unknown as ApiClient} operationId="op-1" />);
+    render(<HelpRequestsTab sessionKey="token" api={api as unknown as ApiClient} operationId="op-1" />);
     const dialog = await openReview();
     fireEvent.click(within(dialog).getByRole('radio', { name: /Test Hall/ }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm assignment' }));
@@ -90,7 +90,7 @@ describe('HelpRequestsTab', () => {
   it('keeps the selected shelter for a safe retry after an uncertain network failure', async () => {
     const api = apiFixture();
     api.assignHelpRequest.mockRejectedValueOnce(new ApiError(0, 'Network'));
-    render(<HelpRequestsTab accessToken="token" api={api as unknown as ApiClient} operationId="op-1" />);
+    render(<HelpRequestsTab sessionKey="token" api={api as unknown as ApiClient} operationId="op-1" />);
     const dialog = await openReview();
     fireEvent.click(within(dialog).getByRole('radio', { name: /Test Hall/ }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm assignment' }));
@@ -102,16 +102,16 @@ describe('HelpRequestsTab', () => {
   });
   it('loads persisted assignment information in the reserved view after remount', async () => {
     const api = apiFixture();
-    const view = render(<HelpRequestsTab accessToken="token" api={api as unknown as ApiClient} operationId="op-1" />);
+    const view = render(<HelpRequestsTab sessionKey="token" api={api as unknown as ApiClient} operationId="op-1" />);
     await screen.findByRole('table');
     view.unmount();
-    render(<HelpRequestsTab accessToken="token" api={api as unknown as ApiClient} operationId="op-1" />);
+    render(<HelpRequestsTab sessionKey="token" api={api as unknown as ApiClient} operationId="op-1" />);
     fireEvent.click(screen.getByRole('button', { name: 'Reserved' }));
     expect((await screen.findAllByText('Test Hall · 2 places reserved')).length).toBeGreaterThan(0);
   });
   it('closes by Escape and restores focus to the invoking button', async () => {
     const api = apiFixture();
-    render(<HelpRequestsTab accessToken="token" api={api as unknown as ApiClient} operationId="op-1" />);
+    render(<HelpRequestsTab sessionKey="token" api={api as unknown as ApiClient} operationId="op-1" />);
     const trigger = (await screen.findAllByRole('button', { name: 'Review & assign' }))[0];
     fireEvent.click(trigger);
     const dialog = screen.getByRole('dialog');
@@ -125,7 +125,7 @@ describe('HelpRequestsTab', () => {
     const api = apiFixture();
     let resolve!: (value: unknown) => void;
     api.getOperatorHelpRequests.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
-    render(<HelpRequestsTab accessToken="token" api={api as unknown as ApiClient} operationId="op-1" />);
+    render(<HelpRequestsTab sessionKey="token" api={api as unknown as ApiClient} operationId="op-1" />);
     fireEvent.click(screen.getByRole('button', { name: 'Reserved' }));
     expect((await screen.findAllByText('Test Hall · 2 places reserved')).length).toBeGreaterThan(0);
     await act(async () => resolve({ items: [{ ...pending, requesterName: 'Old request' }], nextCursor: null }));
@@ -135,8 +135,8 @@ describe('HelpRequestsTab', () => {
     const api = apiFixture();
     let resolve!: (value: unknown) => void;
     api.getOperatorHelpRequests.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
-    const view = render(<HelpRequestsTab accessToken="token" api={api as unknown as ApiClient} operationId="old-op" />);
-    view.rerender(<HelpRequestsTab accessToken="token" api={api as unknown as ApiClient} operationId="new-op" />);
+    const view = render(<HelpRequestsTab sessionKey="token" api={api as unknown as ApiClient} operationId="old-op" />);
+    view.rerender(<HelpRequestsTab sessionKey="token" api={api as unknown as ApiClient} operationId="new-op" />);
     await screen.findByRole('table');
     await act(async () => resolve({ items: [{ ...pending, requesterName: 'Earlier operation' }], nextCursor: null }));
     expect(screen.queryByText('Earlier operation')).toBeNull();
@@ -145,7 +145,7 @@ describe('HelpRequestsTab', () => {
   it('loads the next cursor only after the operator asks', async () => {
     const api = apiFixture();
     api.getOperatorHelpRequests.mockResolvedValueOnce({ items: [pending], nextCursor: 'next-page' }).mockResolvedValueOnce({ items: [{ ...pending, id: 'request-2', requesterName: 'Second Person' }], nextCursor: null });
-    render(<HelpRequestsTab accessToken="token" api={api as unknown as ApiClient} operationId="op-1" />);
+    render(<HelpRequestsTab sessionKey="token" api={api as unknown as ApiClient} operationId="op-1" />);
     fireEvent.click(await screen.findByRole('button', { name: 'Load more' }));
     expect((await screen.findAllByText('Second Person')).length).toBeGreaterThan(0);
     expect(api.getOperatorHelpRequests).toHaveBeenCalledTimes(2);

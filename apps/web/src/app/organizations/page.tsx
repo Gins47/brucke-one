@@ -11,7 +11,7 @@ export default function OrganizationsPage() {
   const [query, setQuery] = useState('');
 
   useEffect(() => {
-    if (!session.accessToken) {
+    if (!session.sessionKey) {
       router.replace('/login');
       return;
     }
@@ -30,7 +30,7 @@ export default function OrganizationsPage() {
     );
   }, [query, session.organizations]);
 
-  if (!session.accessToken) {
+  if (!session.sessionKey) {
     return null;
   }
 
@@ -47,7 +47,7 @@ export default function OrganizationsPage() {
     <main className="min-h-screen bg-slate-50 px-5 py-10 sm:px-8">
       <section className="relative mx-auto max-w-3xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <p className="text-sm font-semibold text-blue-700">Brücke One</p>
-        <button className="absolute right-6 top-6 text-sm font-semibold text-blue-700 hover:text-blue-900 sm:right-8 sm:top-8" onClick={() => { session.logout(); router.replace('/login'); }} type="button">Log out</button>
+        <button className="absolute right-6 top-6 text-sm font-semibold text-blue-700 hover:text-blue-900 sm:right-8 sm:top-8" onClick={() => { void session.logout(); }} type="button">Log out</button>
         <h1 className="mt-2 text-2xl font-bold text-slate-950">Choose an organization</h1>
         <p className="mt-2 text-sm leading-6 text-slate-600">This local search filters the loaded development organization list.</p>
         <label className="mt-6 block text-sm font-semibold text-slate-800" htmlFor="organization-search">
